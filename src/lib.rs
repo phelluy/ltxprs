@@ -26,7 +26,7 @@ Text: (~[\\{}$%])+ ;
 // necessarily matching
 // that's why we do it in Rust with nom and a recursive parser
 
-// use exit function for debuging
+// import exit function for debugging (sometimes)
 #[allow(unused_imports)]
 use std::process::exit;
 
@@ -41,6 +41,7 @@ use nom::{
     IResult,
 };
 
+// The recursive structure that contains the whole AST
 #[derive(Debug, PartialEq, Clone)]
 enum LtxNode {
     Text(String),              // a text without any special character (no \{}$%)
@@ -95,20 +96,11 @@ fn comment_node(input: &str) -> nom::IResult<&str, LtxNode> {
 }
 
 // parse an atom, which is a command, a comment or a text
-fn atom(input: &str) -> nom::IResult<&str, &str> {
-    alt((command, comment, text))(input)
-}
-
 fn atom_node(input: &str) -> nom::IResult<&str, LtxNode> {
     alt((command_node, comment_node, text_node))(input)
 }
 
-// parse a group: zero or more atoms between { and }
-// and collect
-fn group(input: &str) -> nom::IResult<&str, Vec<&str>> {
-    delimited(char('{'), many0(atom), char('}'))(input)
-}
-
+// parse a group of nodes recursively
 fn group_node(input: &str) -> nom::IResult<&str, LtxNode> {
     map(
         delimited(char('{'), many0(alt((atom_node, group_node))), char('}')),
@@ -175,20 +167,11 @@ mod tests {
     #[test]
     fn parse_atom() {
         let str = "aaaa%oula\n";
-        assert_eq!(atom(str), Ok(("%oula\n", "aaaa")));
+        assert_eq!(atom_node(str), Ok(("%oula\n", LtxNode::Text("aaaa".to_string()))));
         let str = "%oula\n\\toto";
-        assert_eq!(atom(str), Ok(("\n\\toto", "oula")));
+        assert_eq!(atom_node(str), Ok(("\n\\toto", LtxNode::Comment("oula".to_string()))));
         let str = "\\oulaé";
-        assert_eq!(atom(str), Ok(("é", "oula")));
-    }
-
-    #[test]
-    fn parse_group() {
-        let str = "{aaa \\bb}bb";
-        println!("{:?}", group(str));
-        assert_eq!(group(str), Ok(("bb", vec!["aaa ", "bb"])));
-        let str = "bb{aaa}";
-        assert!(group(str).is_err());
+        assert_eq!(atom_node(str), Ok(("é", LtxNode::Command("oula".to_string()))));
     }
 
     #[test]
