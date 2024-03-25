@@ -52,6 +52,44 @@ enum LtxNode {
     DisplayMath(Vec<LtxNode>), // a display math environment between $$ and $$ or \[ and \]
 }
 
+
+// implement the constructor for LtxNode
+impl LtxNode {
+    fn new(s: &str) -> LtxNode {
+        let s = s.trim();
+        // construct the string { s }
+        let s = format!("{{{}}}", s);
+        println!("new: {}", s);
+        group_node(&s).unwrap().1
+    }
+
+    // iter in the ltxnode and extracts all the command names
+    fn extracts_commands(&self) -> Vec<String> {
+        let mut cmd_list = vec!();
+        match self {
+            LtxNode::Text(_) => (),
+            LtxNode::Comment(_) => (),
+            LtxNode::Command(s) => cmd_list.push(s.clone()),
+            LtxNode::Group(v) => {
+                for n in v {
+                    cmd_list.append(&mut n.extracts_commands());
+                }
+            }
+            LtxNode::Math(v) => {
+                for n in v {
+                    cmd_list.append(&mut n.extracts_commands());
+                }
+            }
+            LtxNode::DisplayMath(v) => {
+                for n in v {
+                    cmd_list.append(&mut n.extracts_commands());
+                }
+            }
+        }
+        cmd_list
+    }   
+}
+
 // parse a text until one of these character is encountered: \{}$%
 fn text(input: &str) -> nom::IResult<&str, &str> {
     recognize(many1(none_of("\\{}$%")))(input)
@@ -78,7 +116,12 @@ fn command(input: &str) -> nom::IResult<&str, &str> {
 }
 
 fn command_node(input: &str) -> nom::IResult<&str, LtxNode> {
-    map(command, |s: &str| LtxNode::Command(s.to_string()))(input)
+    map(command, |s: &str| {
+        // add "\\" at the beginning of the command
+        // if the string is not already a double backslash
+        let cs = if s == "\\\\" { s.to_string() } else { format!("\\{}", s) };
+        LtxNode::Command(cs.to_string())
+    })(input)
 }
 
 // parse until end of line
@@ -167,11 +210,20 @@ mod tests {
     #[test]
     fn parse_atom() {
         let str = "aaaa%oula\n";
-        assert_eq!(atom_node(str), Ok(("%oula\n", LtxNode::Text("aaaa".to_string()))));
+        assert_eq!(
+            atom_node(str),
+            Ok(("%oula\n", LtxNode::Text("aaaa".to_string())))
+        );
         let str = "%oula\n\\toto";
-        assert_eq!(atom_node(str), Ok(("\n\\toto", LtxNode::Comment("oula".to_string()))));
+        assert_eq!(
+            atom_node(str),
+            Ok(("\n\\toto", LtxNode::Comment("oula".to_string())))
+        );
         let str = "\\oulaé";
-        assert_eq!(atom_node(str), Ok(("é", LtxNode::Command("oula".to_string()))));
+        assert_eq!(
+            atom_node(str),
+            Ok(("é", LtxNode::Command("oula".to_string())))
+        );
     }
 
     #[test]
@@ -203,5 +255,20 @@ mod tests {
         "#;
         let grp = group_node(str);
         println!("{:?}", grp);
+    }
+
+    #[test]
+    fn new_ltx_test() {
+        let str = r#"
+           
+\item a \\
+% rien 
+\item {\blue {\b}}
+              
+              "#;
+        let latex = LtxNode::new(str);
+        println!("{:?}", latex);
+        let cmds = latex.extracts_commands();
+        println!("{:?}", cmds);
     }
 }
