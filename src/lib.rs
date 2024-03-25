@@ -47,6 +47,7 @@ enum LtxNode {
     Text(String),              // a text without any special character (no \{}$%)
     Comment(String),   // a comment starting with a % and ending with a \n
     Label(String),          // a label starting with \label{ and ending with }
+    Reference(String),          // a reference starting with \ref{ and ending with }
     Command(String),           // a command starting with a \ and followed by [a-zA-Z]+ or [\&{}[]]
     Group(Vec<LtxNode>),       // a group of nodes between { and }
     Math(Vec<LtxNode>),        // a math environment between $ and $ or \( and \)
@@ -71,6 +72,7 @@ impl LtxNode {
             LtxNode::Text(_) => (),
             LtxNode::Comment(_) => (),
             LtxNode::Label(_) => (),
+            LtxNode::Reference(_) => (),
             LtxNode::Command(s) => cmd_list.push(s.clone()),
             LtxNode::Group(v) => {
                 for n in v {
@@ -98,6 +100,7 @@ impl LtxNode {
             LtxNode::Text(_) => (),
             LtxNode::Comment(_) => (),
             LtxNode::Command(_) => (),
+            LtxNode::Reference(_) => (),
             LtxNode::Label(s) => label_list.push(s.clone()),
             LtxNode::Group(v) => {
                 for n in v {
@@ -116,6 +119,34 @@ impl LtxNode {
             }
         }
         label_list
+    }
+
+    // extract the references from the ltxnode
+    fn extracts_references(&self) -> Vec<String> {
+        let mut ref_list = vec!();
+        match self {
+            LtxNode::Text(_) => (),
+            LtxNode::Comment(_) => (),
+            LtxNode::Command(_) => (),
+            LtxNode::Label(_) => (),
+            LtxNode::Reference(s) => ref_list.push(s.clone()),
+            LtxNode::Group(v) => {
+                for n in v {
+                    ref_list.append(&mut n.extracts_references());
+                }
+            }
+            LtxNode::Math(v) => {
+                for n in v {
+                    ref_list.append(&mut n.extracts_references());
+                }
+            }
+            LtxNode::DisplayMath(v) => {
+                for n in v {
+                    ref_list.append(&mut n.extracts_references());
+                }
+            }
+        }
+        ref_list
     }
 
 }
@@ -143,6 +174,18 @@ fn ascii_braces(input: &str) -> nom::IResult<&str, &str> {
 // parse a label: an ascii braces with a \label prefix
 fn label(input: &str) -> nom::IResult<&str, &str> {
     preceded(tag("\\label"), ascii_braces)(input)
+}
+
+// parse a ref: an ascii braces with a \ref prefix
+fn ltxref(input: &str) -> nom::IResult<&str, &str> {
+    preceded(tag("\\ref"), ascii_braces)(input)
+}
+
+fn ltxref_node(input: &str) -> nom::IResult<&str, LtxNode> {
+    map(ltxref, |s: &str| {
+        // prepend \ref{ and append }
+        let cs = format!("\\ref{{{}}}", s);
+        LtxNode::Reference(cs.to_string())})(input)
 }
 
 fn label_node(input: &str) -> nom::IResult<&str, LtxNode> {
@@ -189,7 +232,7 @@ fn comment_node(input: &str) -> nom::IResult<&str, LtxNode> {
 
 // parse an atom, which is a command, a comment or a text
 fn atom_node(input: &str) -> nom::IResult<&str, LtxNode> {
-    alt((label_node, command_node, comment_node, text_node))(input)
+    alt((ltxref_node, label_node, command_node, comment_node, text_node))(input)
 }
 
 // parse a group of nodes recursively
@@ -309,11 +352,11 @@ mod tests {
     #[test]
     fn new_ltx_test() {
         let str = r#"
-           
+\ref{toto}        
 \item a \\
 % rien 
 \label{toto}
-\item {\blue {\b \label{titi}}}
+\item {\blue {\b \ref{tata} \label{titi}}}
               
               "#;
         let latex = LtxNode::new(str);
@@ -322,5 +365,7 @@ mod tests {
         println!("commands: {:?}", cmds);
         let labels = latex.extracts_labels();
         println!("labels: {:?}", labels);
+        let refs = latex.extracts_references();
+        println!("references: {:?}", refs);
     }
 }
