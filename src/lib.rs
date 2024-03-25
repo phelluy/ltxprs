@@ -45,7 +45,8 @@ use nom::{
 #[derive(Debug, PartialEq, Clone)]
 enum LtxNode {
     Text(String),              // a text without any special character (no \{}$%)
-    Comment(String),           // a comment starting with a % and ending with a \n
+    Comment(String),   // a comment starting with a % and ending with a \n
+    Label(String),          // a label starting with \label{ and ending with }
     Command(String),           // a command starting with a \ and followed by [a-zA-Z]+ or [\&{}[]]
     Group(Vec<LtxNode>),       // a group of nodes between { and }
     Math(Vec<LtxNode>),        // a math environment between $ and $ or \( and \)
@@ -69,6 +70,7 @@ impl LtxNode {
         match self {
             LtxNode::Text(_) => (),
             LtxNode::Comment(_) => (),
+            LtxNode::Label(_) => (),
             LtxNode::Command(s) => cmd_list.push(s.clone()),
             LtxNode::Group(v) => {
                 for n in v {
@@ -88,6 +90,34 @@ impl LtxNode {
         }
         cmd_list
     }   
+
+    // extract the labels from the ltxnode
+    fn extracts_labels(&self) -> Vec<String> {
+        let mut label_list = vec!();
+        match self {
+            LtxNode::Text(_) => (),
+            LtxNode::Comment(_) => (),
+            LtxNode::Command(_) => (),
+            LtxNode::Label(s) => label_list.push(s.clone()),
+            LtxNode::Group(v) => {
+                for n in v {
+                    label_list.append(&mut n.extracts_labels());
+                }
+            }
+            LtxNode::Math(v) => {
+                for n in v {
+                    label_list.append(&mut n.extracts_labels());
+                }
+            }
+            LtxNode::DisplayMath(v) => {
+                for n in v {
+                    label_list.append(&mut n.extracts_labels());
+                }
+            }
+        }
+        label_list
+    }
+
 }
 
 // parse a text until one of these character is encountered: \{}$%
@@ -104,6 +134,25 @@ fn text_node(input: &str) -> nom::IResult<&str, LtxNode> {
 fn ascii_cmd(input: &str) -> nom::IResult<&str, &str> {
     preceded(tag("\\"), alpha1)(input)
 }
+
+// parse an ascii text enclosed in braces
+fn ascii_braces(input: &str) -> nom::IResult<&str, &str> {
+    delimited(char('{'), alpha1, char('}'))(input)
+}
+
+// parse a label: an ascii braces with a \label prefix
+fn label(input: &str) -> nom::IResult<&str, &str> {
+    preceded(tag("\\label"), ascii_braces)(input)
+}
+
+fn label_node(input: &str) -> nom::IResult<&str, LtxNode> {
+    map(label, |s: &str| {
+        // prepend \label{ and append }
+        let cs = format!("\\label{{{}}}", s);
+        LtxNode::Label(cs.to_string())})(input)
+}
+
+
 
 // parse a double backslash
 fn double_backslash(input: &str) -> nom::IResult<&str, &str> {
@@ -140,7 +189,7 @@ fn comment_node(input: &str) -> nom::IResult<&str, LtxNode> {
 
 // parse an atom, which is a command, a comment or a text
 fn atom_node(input: &str) -> nom::IResult<&str, LtxNode> {
-    alt((command_node, comment_node, text_node))(input)
+    alt((label_node, command_node, comment_node, text_node))(input)
 }
 
 // parse a group of nodes recursively
@@ -263,12 +312,15 @@ mod tests {
            
 \item a \\
 % rien 
-\item {\blue {\b}}
+\label{toto}
+\item {\blue {\b \label{titi}}}
               
               "#;
         let latex = LtxNode::new(str);
         println!("{:?}", latex);
         let cmds = latex.extracts_commands();
-        println!("{:?}", cmds);
+        println!("commands: {:?}", cmds);
+        let labels = latex.extracts_labels();
+        println!("labels: {:?}", labels);
     }
 }
