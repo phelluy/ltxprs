@@ -1,6 +1,32 @@
-// library for parsing a LateX chunk
-// the grammar of the chunk is (more or less) as follows
-// in the ANTL format
+
+//! It is written in Rust and uses the nom library
+//! # Examples
+//! This library is a parser for a subset of LateX
+//! ```
+//! use ltxprs::LtxNode;
+//!let str = r#"
+//!\ref{toto}        
+//!\item a \\
+//!% rien 
+//!$ \frac{a}{b} $
+//!\label{toto}
+//!\item {\blue {\b \ref{tata} \label{titi}}}
+//!              
+//!              "#;
+//!let latex = LtxNode::new(str);
+//!println!("{:?}", latex);
+//!let cmds = latex.extracts_commands();
+//!println!("commands: {:?}", cmds);
+//!let labels = latex.extracts_labels();
+//!println!("labels: {:?}", labels);
+//!let refs = latex.extracts_references();
+//!println!("references: {:?}", refs);
+//!assert_eq!(refs[1] , "\\ref{tata}".to_string());
+//!```
+
+
+//the grammar of the chunk is (more or less) as follows
+//in the ANTL format (not used, just giving an idea)
 #[allow(dead_code)]
 const GRAMAR: &str = r#"
 grammar latex;
@@ -23,27 +49,26 @@ Text: (~[\\{}$%])+ ;
 "#;
 // however there is an error in this definition because
 // the Begin and End in the env construct are not
-// necessarily matching
+// necessarily matching. Begin and End are not used in 
+// this library.
 // that's why we do it in Rust with nom and a recursive parser
 
 // import exit function for debugging (sometimes)
 #[allow(unused_imports)]
 use std::process::exit;
 
-#[allow(unused_imports)]
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    character::complete::{alpha1, char, multispace0, none_of},
-    combinator::{map, opt, recognize},
+    character::complete::{alpha1, char, none_of},
+    combinator::{map, recognize},
     multi::{many0, many1},
-    sequence::{delimited, preceded, terminated},
-    IResult,
+    sequence::{delimited, preceded},
 };
 
-// The recursive structure that contains the whole AST
+///The recursive structure that contains the whole AST
 #[derive(Debug, PartialEq, Clone)]
-enum LtxNode {
+pub enum LtxNode {
     Text(String),              // a text without any special character (no \{}$%)
     Comment(String),   // a comment starting with a % and ending with a \n
     Label(String),          // a label starting with \label{ and ending with }
@@ -55,18 +80,17 @@ enum LtxNode {
 }
 
 
-// implement the constructor for LtxNode
 impl LtxNode {
-    fn new(s: &str) -> LtxNode {
+    pub fn new(s: &str) -> LtxNode {
         let s = s.trim();
-        // construct the string { s }
+        // construct the string {s} so that the head Node is a group.
         let s = format!("{{{}}}", s);
         println!("new: {}", s);
         group_node(&s).unwrap().1
     }
 
-    // iter in the ltxnode and extracts all the command names
-    fn extracts_commands(&self) -> Vec<String> {
+    ///Iters in the ltxnode and extracts all the command names
+    pub fn extracts_commands(&self) -> Vec<String> {
         let mut cmd_list = vec!();
         match self {
             LtxNode::Text(_) => (),
@@ -93,8 +117,8 @@ impl LtxNode {
         cmd_list
     }   
 
-    // extract the labels from the ltxnode
-    fn extracts_labels(&self) -> Vec<String> {
+    ///Iters in the ltxnode and extracts all the labels
+    pub fn extracts_labels(&self) -> Vec<String> {
         let mut label_list = vec!();
         match self {
             LtxNode::Text(_) => (),
@@ -121,8 +145,8 @@ impl LtxNode {
         label_list
     }
 
-    // extract the references from the ltxnode
-    fn extracts_references(&self) -> Vec<String> {
+    ///Iters in the ltxnode and extracts all the references
+    pub fn extracts_references(&self) -> Vec<String> {
         let mut ref_list = vec!();
         match self {
             LtxNode::Text(_) => (),
@@ -151,36 +175,37 @@ impl LtxNode {
 
 }
 
-// parse a text until one of these character is encountered: \{}$%
+///parse a text until one of these character is encountered: \{}$%
 fn text(input: &str) -> nom::IResult<&str, &str> {
     recognize(many1(none_of("\\{}$%")))(input)
 }
 
-// parse a text and produce a LtxNode::Text
+///parse a text and produce a LtxNode::Text
 fn text_node(input: &str) -> nom::IResult<&str, LtxNode> {
     map(text, |s: &str| LtxNode::Text(s.to_string()))(input)
 }
 
-// parse an ascii text preceded by a backslash
+///parse an ascii text preceded by a backslash
 fn ascii_cmd(input: &str) -> nom::IResult<&str, &str> {
     preceded(tag("\\"), alpha1)(input)
 }
 
-// parse an ascii text enclosed in braces
+///parse an ascii text enclosed in braces
 fn ascii_braces(input: &str) -> nom::IResult<&str, &str> {
     delimited(char('{'), alpha1, char('}'))(input)
 }
 
-// parse a label: an ascii braces with a \label prefix
+///parse a label: an ascii braces with a \label prefix
 fn label(input: &str) -> nom::IResult<&str, &str> {
     preceded(tag("\\label"), ascii_braces)(input)
 }
 
-// parse a ref: an ascii braces with a \ref prefix
+///parse a ref: an ascii braces with a \ref prefix
 fn ltxref(input: &str) -> nom::IResult<&str, &str> {
     preceded(tag("\\ref"), ascii_braces)(input)
 }
 
+///LtxNode version of the previous function
 fn ltxref_node(input: &str) -> nom::IResult<&str, LtxNode> {
     map(ltxref, |s: &str| {
         // prepend \ref{ and append }
@@ -188,6 +213,7 @@ fn ltxref_node(input: &str) -> nom::IResult<&str, LtxNode> {
         LtxNode::Reference(cs.to_string())})(input)
 }
 
+///LtxNode version of the label parser
 fn label_node(input: &str) -> nom::IResult<&str, LtxNode> {
     map(label, |s: &str| {
         // prepend \label{ and append }
@@ -197,16 +223,17 @@ fn label_node(input: &str) -> nom::IResult<&str, LtxNode> {
 
 
 
-// parse a double backslash
+///Parse a double backslash
 fn double_backslash(input: &str) -> nom::IResult<&str, &str> {
     tag("\\\\")(input)
 }
 
-// parse an ascii_cmd or a double_backslash
+///parse an ascii_cmd or a double_backslash
 fn command(input: &str) -> nom::IResult<&str, &str> {
     alt((ascii_cmd, double_backslash))(input)
 }
 
+///parse a command and produce a LtxNode::Command
 fn command_node(input: &str) -> nom::IResult<&str, LtxNode> {
     map(command, |s: &str| {
         // add "\\" at the beginning of the command
@@ -216,26 +243,55 @@ fn command_node(input: &str) -> nom::IResult<&str, LtxNode> {
     })(input)
 }
 
-// parse until end of line
+///parse until end of line
 fn end_of_line(input: &str) -> nom::IResult<&str, &str> {
     recognize(many0(none_of("\n")))(input)
 }
 
-// parse a comment: anything between a % and a \n
+///parse a comment: anything between a % and a \n
 fn comment(input: &str) -> nom::IResult<&str, &str> {
     preceded(tag("%"), end_of_line)(input)
 }
 
+///parse a comment and produce a LtxNode::Comment
 fn comment_node(input: &str) -> nom::IResult<&str, LtxNode> {
     map(comment, |s: &str| LtxNode::Comment(s.to_string()))(input)
 }
 
-// parse an atom, which is a command, a comment or a text
-fn atom_node(input: &str) -> nom::IResult<&str, LtxNode> {
-    alt((ltxref_node, label_node, command_node, comment_node, text_node))(input)
+///parse a math node delimited by $ .. $ or \( .. \)
+fn math_node(input: &str) -> nom::IResult<&str, LtxNode> {
+    alt((
+        map(
+            delimited(tag("$"), many0(alt((atom_node, group_node))), tag("$")),
+            |v| LtxNode::Math(v),
+        ),
+        map(
+            delimited(tag("\\("), many0(alt((atom_node, group_node))), tag("\\)")),
+            |v| LtxNode::Math(v),
+        ),
+    ))(input)
 }
 
-// parse a group of nodes recursively
+///parse a display math node delimited by $$ .. $$ or \[ .. \]
+fn display_math_node(input: &str) -> nom::IResult<&str, LtxNode> {
+    alt((
+        map(
+            delimited(tag("$$"), many0(alt((atom_node, group_node))), tag("$$")),
+            |v| LtxNode::DisplayMath(v),
+        ),
+        map(
+            delimited(tag("\\["), many0(alt((atom_node, group_node))), tag("\\]")),
+            |v| LtxNode::DisplayMath(v),
+        ),
+    ))(input)
+}
+
+///parse an atom, which is a command, a comment or a text or a math env
+fn atom_node(input: &str) -> nom::IResult<&str, LtxNode> {
+    alt((ltxref_node, label_node, command_node, math_node, display_math_node, comment_node, text_node))(input)
+}
+
+///parse a group of nodes recursively
 fn group_node(input: &str) -> nom::IResult<&str, LtxNode> {
     map(
         delimited(char('{'), many0(alt((atom_node, group_node))), char('}')),
@@ -314,7 +370,7 @@ mod tests {
         let str = "\\oulaé";
         assert_eq!(
             atom_node(str),
-            Ok(("é", LtxNode::Command("oula".to_string())))
+            Ok(("é", LtxNode::Command("\\oula".to_string())))
         );
     }
 
@@ -328,7 +384,7 @@ mod tests {
             Ok((
                 "",
                 LtxNode::Group(vec![
-                    LtxNode::Command("item".to_string()),
+                    LtxNode::Command("\\item".to_string()),
                     LtxNode::Text(" salut ça va ? ".to_string()),
                     LtxNode::Comment(" ouf tout va bien".to_string()),
                     LtxNode::Text("\n".to_string()),
@@ -368,4 +424,22 @@ mod tests {
         let refs = latex.extracts_references();
         println!("references: {:?}", refs);
     }
+
+    #[test]
+    fn test_math() {
+        let str = r#"
+\toto
+\[ \int_0^1 f(x) dx \]
+$ \frac{1}{2}$
+"#;
+        let latex = LtxNode::new(str);
+        println!("{:?}", latex);
+        let cmds = latex.extracts_commands();
+        println!("commands: {:?}", cmds);
+        let labels = latex.extracts_labels();
+        println!("labels: {:?}", labels);
+        let refs = latex.extracts_references();
+        println!("references: {:?}", refs);
+    }
+
 }
