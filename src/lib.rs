@@ -1,18 +1,18 @@
 
-//! It is written in Rust and uses the nom library
+//! This library is a parser for a subset of LateX.
+//! It uses the nom library.
+//! It can extract a W3C EBNF grammar of the latex parsed chunk.
 //! # Examples
-//! This library is a parser for a subset of LateX
 //! ```
 //! use ltxprs::LtxNode;
 //!let str = r#"
+//!% comment
 //!\ref{toto}        
 //!\item a \\
-//!% rien 
 //!$ \frac{a}{b} $
 //!\label{toto}
 //!\item {\blue {\b \ref{tata} \label{titi}}}
-//!              
-//!              "#;
+//! "#;
 //!let latex = LtxNode::new(str);
 //!println!("{:?}", latex);
 //!let cmds = latex.extracts_commands();
@@ -22,6 +22,7 @@
 //!let refs = latex.extracts_references();
 //!println!("references: {:?}", refs);
 //!assert_eq!(refs[1] , "\\ref{tata}".to_string());
+//! println!("{}",latex.to_ebnf());
 //!```
 
 
@@ -29,6 +30,7 @@
 // the list of possible commands is added afterward
 #[allow(dead_code)]
 const GRAMAR: &str = r#"
+# W3C EBNF grammar of the Latex chunk
 root ::= "\\begin{trsltx}" stuff "\\end{trsltx}"
 stuff ::= (atom | construct)*
 atom ::= command | text

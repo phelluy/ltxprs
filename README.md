@@ -6,23 +6,25 @@ This is a minimal LaTeX parser. Its purpose is to perform very simple checks for
 Example of use
 
 ```rust
+use ltxprs::LtxNode;
+
 fn main() {
     let str = r#"
+% comment
 \ref{toto}        
 \item a \\
-% rien 
 $ \frac{a}{b} $
 \label{toto}
 \item {\blue {\b \ref{tata} \label{titi}}}
-              
-              "#;
+"#;
     let latex = LtxNode::new(str);
-    println!("{:?}", latex);
     let cmds = latex.extracts_commands();
     println!("commands: {:?}", cmds);
     let labels = latex.extracts_labels();
     println!("labels: {:?}", labels);
     let refs = latex.extracts_references();
     println!("references: {:?}", refs);
+    assert_eq!(refs[1] , "\\ref{tata}".to_string());
+    println!("{}",latex.to_ebnf());
 }
 ```
