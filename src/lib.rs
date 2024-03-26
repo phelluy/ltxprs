@@ -173,6 +173,12 @@ impl LtxNode {
         ref_list
     }
 
+    /// Generate the W3C EBNF grammar of the latex chunk
+    pub fn to_ebnf(&self) -> String {
+        let s = String::new();
+        s
+    } 
+
 }
 
 ///parse a text until one of these character is encountered: \{}$%
