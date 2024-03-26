@@ -25,33 +25,19 @@
 //!```
 
 
-//the grammar of the chunk is (more or less) as follows
-//in the ANTL format (not used, just giving an idea)
+//the grammar of the chunk is as follows
+// the list of possible commands is added afterward
 #[allow(dead_code)]
 const GRAMAR: &str = r#"
-grammar latex;
-latex: stuff;
-stuff: (atom | construct)* ;
-atom: command | comment | text ;  /* sans majuscules */
-construct:  dmath | tmath | group | env;
-dmath: '$$' stuff '$$' | '\\[' stuff '\\]' ;
-tmath: '$' stuff '$' | '\\(' stuff '\\)' ;
-group: '{' stuff '}' ;
-env: Begin stuff End ;
-Begin: '\\begin{'[a-zA-Z]+'*'?'}' ;
-End: '\\end{'[a-zA-Z]+'*'?'}' ;
-comment: Comment ;
-Comment: '%'~[\n]*'\n' ;
-command: Command;
-Command: '\\'[\\&a-zA-Z]+ ;
-text: Text ;
-Text: (~[\\{}$%])+ ;
-"#;
-// however there is an error in this definition because
-// the Begin and End in the env construct are not
-// necessarily matching. Begin and End are not used in 
-// this library.
-// that's why we do it in Rust with nom and a recursive parser
+root ::= "\\begin{trsltx}" stuff "\\end{trsltx}"
+stuff ::= (atom | construct)*
+atom ::= command | text
+construct ::= group
+text ::= [^\\{}$%]+
+group ::= "{" stuff "}""#;
+// example of a missing command line:
+//command ::= "\\item"  | "\\begin" | "\\frac" | "\\label{eq:formule}" |
+// "\\end" | "\\ref//{eq:autre_formule}" | "\\section" | "\\sqrt"
 
 // import exit function for debugging (sometimes)
 #[allow(unused_imports)]
@@ -175,7 +161,29 @@ impl LtxNode {
 
     /// Generate the W3C EBNF grammar of the latex chunk
     pub fn to_ebnf(&self) -> String {
-        let s = String::new();
+        let mut s0 = GRAMAR.to_string();
+        // append to s all the labels and command separated by "|"
+        // on a single line do it so that the backslashes are not removed
+        let labels = self.extracts_labels();
+        let refs = self.extracts_references();
+        let cmds = self.extracts_commands();
+        let mut s = "\ncommand ::= ".to_string();
+        for l in labels {
+
+            s = s + "\"" + l.clone().as_str() + "\"" + " | ";
+        }
+        for r in refs {
+            s = s + "\"" + r.clone().as_str() + "\"" + " | ";
+        }
+        for c in cmds {
+            s = s + "\"" + c.clone().as_str() + "\"" + " | ";
+        }
+        // remove the trailing " | "
+        s = s.trim_end_matches(" | ").to_string();
+        // replace all the "\" by "\\"
+        s = s.replace("\\", "\\\\");
+        let s = s0 + &s;
+        println!("{}",s);
         s
     } 
 
