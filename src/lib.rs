@@ -43,7 +43,7 @@ group ::= "{" stuff "}""#;
 use std::process::exit;
 
 use nom::{
-    branch::{alt, permutation},
+    branch::{alt,},
     bytes::complete::tag,
     character::complete::{alpha1, char, none_of},
     combinator::{map, recognize},
@@ -52,6 +52,8 @@ use nom::{
 };
 
 ///The recursive structure that contains the whole AST
+/// Remark: the Text node may contain \begin{} ... \end{} environments
+/// including maths. Only the $...$ and $$...$$ are checked for now.
 #[derive(Debug, PartialEq, Clone)]
 pub enum LtxNode {
     Text(String),              // a text without any special character (no \{}$%)
@@ -70,7 +72,7 @@ impl LtxNode {
         // construct the string {s} so that the head Node is a group.
         // the \n's are important for parsing initial or closing %'s
         let s = format!("{{\n{}\n}}", s);
-        println!("new: {}", s);
+        //println!("new: {}", s);
         group_node(&s).unwrap().1
     }
 
@@ -262,13 +264,17 @@ fn label_node(input: &str) -> nom::IResult<&str, LtxNode> {
     })(input)
 }
 
-///Parse a backslash followed by a special character: \{}$&,;%@:-
+///Parse a backslash followed by a special character: \{}()[]$&,;%@:-
 /// and the accented characters: '`^"~
 fn backslash_special(input: &str) -> nom::IResult<&str, &str> {
     alt((
         tag("\\\\"),
         tag("\\{"),
         tag("\\}"),
+        tag("\\("),
+        tag("\\)"),
+        tag("\\["),
+        tag("\\]"),
         tag("\\$"),
         tag("\\&"),
         tag("\\,"),
