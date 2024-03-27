@@ -21,7 +21,6 @@
 //!println!("labels: {:?}", labels);
 //!let refs = latex.extracts_references();
 //!println!("references: {:?}", refs);
-//!assert_eq!(refs[1] , "\\ref{tata}".to_string());
 //! println!("{}",latex.to_ebnf());
 //!```
 
@@ -46,7 +45,7 @@ group ::= "{" stuff "}""#;
 use std::process::exit;
 
 use nom::{
-    branch::alt,
+    branch::{alt,permutation},
     bytes::complete::tag,
     character::complete::{alpha1, char, none_of},
     combinator::{map, recognize},
@@ -102,6 +101,9 @@ impl LtxNode {
                 }
             }
         }
+        // remove repeated entries
+        cmd_list.sort();
+        cmd_list.dedup();
         cmd_list
     }   
 
@@ -130,6 +132,9 @@ impl LtxNode {
                 }
             }
         }
+        // remove repeated entries
+        label_list.sort();
+        label_list.dedup();
         label_list
     }
 
@@ -158,20 +163,22 @@ impl LtxNode {
                 }
             }
         }
+        // remove repeated entries
+        ref_list.sort();
+        ref_list.dedup();
         ref_list
     }
 
     /// Generate the W3C EBNF grammar of the latex chunk
     pub fn to_ebnf(&self) -> String {
-        let mut s0 = GRAMAR.to_string();
+        let s0 = GRAMAR.to_string();
         // append to s all the labels and command separated by "|"
-        // on a single line do it so that the backslashes are not removed
+        // on a single line, do it so that the backslashes are not removed
         let labels = self.extracts_labels();
         let refs = self.extracts_references();
         let cmds = self.extracts_commands();
         let mut s = "\ncommand ::= ".to_string();
         for l in labels {
-
             s = s + "\"" + l.clone().as_str() + "\"" + " | ";
         }
         for r in refs {
@@ -201,10 +208,23 @@ fn text_node(input: &str) -> nom::IResult<&str, LtxNode> {
     map(text, |s: &str| LtxNode::Text(s.to_string()))(input)
 }
 
-///parse an ascii text preceded by a backslash
+// ///parse a string that is neither  "ref" nor "label"
+// fn no_ref_label_str(input: &str) -> nom::IResult<&str, &str> {
+//     permutation((recognize(many1(none_of("label"))), recognize(many1(none_of("ref")))))(input)
+// }
+
+// // parse a string that is not "ref" and not "label" using the previous parser
+// fn not_ref_label_str(input: &str) -> nom::IResult<&str, &str> {
+    
+// }
+
+
+// parse an ascii command: a backslash followed by a string of letters
 fn ascii_cmd(input: &str) -> nom::IResult<&str, &str> {
-    preceded(tag("\\"), alpha1)(input)
+    preceded(char('\\'), alpha1)(input)
 }
+
+
 
 ///parse an ascii text enclosed in braces
 fn ascii_braces(input: &str) -> nom::IResult<&str, &str> {
@@ -239,22 +259,30 @@ fn label_node(input: &str) -> nom::IResult<&str, LtxNode> {
 
 
 
-///Parse a double backslash
-fn double_backslash(input: &str) -> nom::IResult<&str, &str> {
-    tag("\\\\")(input)
+///Parse a backslash followed by a special character: \{}$&
+fn backslash_special(input: &str) -> nom::IResult<&str, &str> {
+    alt((tag("\\\\"), tag("\\{"), tag("\\}"), tag("\\$"), tag("\\&")))(input)
+    //tag("\\\\")(input)
 }
+// fn backslash_special(input: &str) -> nom::IResult<&str, &str> {
+//     alt((tag("\\\\"), tag("\\$"), tag("\\&")))(input)
+// }
 
-///parse an ascii_cmd or a double_backslash
+///parse an ascii_cmd or a backslash_special
 fn command(input: &str) -> nom::IResult<&str, &str> {
-    alt((ascii_cmd, double_backslash))(input)
+    alt((ascii_cmd, backslash_special))(input)
 }
 
 ///parse a command and produce a LtxNode::Command
 fn command_node(input: &str) -> nom::IResult<&str, LtxNode> {
     map(command, |s: &str| {
         // add "\\" at the beginning of the command
-        // if the string is not already a double backslash
-        let cs = if s == "\\\\" { s.to_string() } else { format!("\\{}", s) };
+        // if the string is not already a backslash_special
+        let cs = if s.starts_with("\\") {
+            s.to_string()
+        } else {
+            format!("\\{}", s)
+        };
         LtxNode::Command(cs.to_string())
     })(input)
 }
@@ -303,6 +331,7 @@ fn display_math_node(input: &str) -> nom::IResult<&str, LtxNode> {
 }
 
 ///parse an atom, which is a command, a comment or a text or a math env
+/// some remarks: math envs cannot be nested
 fn atom_node(input: &str) -> nom::IResult<&str, LtxNode> {
     alt((ltxref_node, label_node, command_node, math_node, display_math_node, comment_node, text_node))(input)
 }
