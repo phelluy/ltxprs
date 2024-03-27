@@ -225,20 +225,24 @@ fn ascii_cmd(input: &str) -> nom::IResult<&str, &str> {
 }
 
 
+//parse an alphatext with this possible character: :-_
+fn label_text(input: &str) -> nom::IResult<&str, &str> {
+    recognize(many1(alt((alpha1, tag(":"), tag("-"), tag("_")))))(input)
+}
 
-///parse an ascii text enclosed in braces
-fn ascii_braces(input: &str) -> nom::IResult<&str, &str> {
-    delimited(char('{'), alpha1, char('}'))(input)
+///parse a label_text enclosed in braces
+fn label_braces(input: &str) -> nom::IResult<&str, &str> {
+    delimited(char('{'), label_text, char('}'))(input)
 }
 
 ///parse a label: an ascii braces with a \label prefix
 fn label(input: &str) -> nom::IResult<&str, &str> {
-    preceded(tag("\\label"), ascii_braces)(input)
+    preceded(tag("\\label"), label_braces)(input)
 }
 
 ///parse a ref: an ascii braces with a \ref prefix
 fn ltxref(input: &str) -> nom::IResult<&str, &str> {
-    preceded(tag("\\ref"), ascii_braces)(input)
+    preceded(tag("\\ref"), label_braces)(input)
 }
 
 ///LtxNode version of the previous function

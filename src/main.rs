@@ -11,7 +11,7 @@ $ \frac{a}{b} $
 \item {\blue {\b \ref{tata} \label{titi}}}
     "#;
     // read the "test/simple_fr.tex" file
-    //let str = std::fs::read_to_string("test/simple_fr.tex").unwrap();
+    let str = std::fs::read_to_string("test/simple_fr.tex").unwrap();
     let latex = LtxNode::new(&str);
     let cmds = latex.extracts_commands();
     println!("commands: {:?}", cmds);
