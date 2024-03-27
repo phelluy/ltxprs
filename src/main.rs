@@ -30,8 +30,14 @@ $ \frac{a}{b} $
     let input_file = Cli::parse().input_file;
     let str = std::fs::read_to_string(input_file).unwrap();
     // remove text before \begin{document} and after \end{document}
-    //let str = str.split(r"\begin{document}").collect::<Vec<&str>>()[1];
+    let str = str.split(r"\begin{document}").collect::<Vec<&str>>()[1];
     let str = str.split(r"\end{document}").collect::<Vec<&str>>()[0];
+    // split at %done\n and take the last part
+    let strs = str.split("%done").collect::<Vec<&str>>();
+    let len = strs.len();
+    println!("len: {}", len);
+    let str = if len == 0 { str } else { &strs[len - 1] };
+
 
     let latex = LtxNode::new(&str);
     let cmds = latex.extracts_commands();
