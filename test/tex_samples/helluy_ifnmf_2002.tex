@@ -1,0 +1,1670 @@
+\documentclass{fldauth}
+\usepackage[T1]{fontenc}
+\usepackage{graphics}
+\usepackage{ae}
+\usepackage{hyperref}
+
+\usepackage{latexsym}
+\usepackage{graphicx}
+
+\theoremstyle{plain}
+\newtheorem{thm}{Theorem}
+\theoremstyle{plain}
+\newtheorem{lem}{Lemma}
+\theoremstyle{plain}
+\newtheorem{prop}{Proposition}
+\theoremstyle{plain}
+\newtheorem{defn}{Definition}
+\theoremstyle{plain}
+\newtheorem{rem}{Remark}
+\theoremstyle{plain}
+\newtheorem{proof}{Proof}
+
+\begin{document}
+\FLD{1}{6}{00}{28}{00}
+
+\runningheads{Coquel, Helluy, Schneider} {Second order entropy
+scheme}
+
+\title{Second order entropy diminishing scheme for the Euler equations}
+
+
+\author{F. Coquel \affil{1}, P. Helluy \affil{2}\comma\corrauth, J. Schneider
+\affil{2}}
+
+\address{\affilnum{1} Laboratoire d'Analyse Num\'erique, Universit\'e Paris VI,
+France, \affilnum{2} Laboratoire ANAM/MNC, Université de Toulon,
+France}
+
+\corraddr{\texttt{helluy@univ-tln.fr}, Laboratoire ANAM/MNC,
+ISITV, BP 56, 83162 La Valette CEDEX, France}
+%\footnotetext[2]{Please ensure that you use the most up to date class file, available from the FLD Home Page at\\
+%\texttt{http://www.interscience.wiley.com/jpages/0271-2091/}
+%%\href{http://www.interscience.wiley.com/jpages/0271-2091/}{\texttt{http://www.interscience.wiley.com/jpages/0271-2091/}}
+%}
+
+%\cgsn{Publishing Arts Research Council}{98--1846389}
+
+\received{3 December 2002} \revised{10 December 2004}
+\noaccepted{}
+
+
+
+\begin{abstract}
+In several papers of Bouchut, Bourdarias, Perthame and Coquel, Le
+Floch (\cite{bouchut_pertham93}, \cite{coquel_lefloch95}...), a
+general methodology has been developed to construct second order
+finite volume schemes for hyperbolic systems of conservation laws
+satisfying the entire family of entropy inequalities. This
+approach is mainly based on the construction of an \textbf{entropy
+diminishing projection}. Unfortunately, the explicit computation
+of this projection is not always easy. In the first part of this
+paper, we carry out this computation in the important case of the
+Euler equations of gas dynamics. In the second part, we present
+several numerical applications of the projection in the context of
+finite volume schemes.
+\end{abstract}
+
+\keywords{Godunov scheme, entropy, second order}
+
+\section*{Introduction}
+
+In this paper, a methodology to build second order generalized
+Godunov schemes satisfying all the entropy inequalities is
+described. Our goal is to adapt the Godunov's original idea, which
+leads to first order schemes, in order to obtain a second order
+scheme. The construction is done completely in the case of the
+Euler equations.
+
+Let us recall that in the classical first order scheme, each time-step of the
+time-marching procedure is made up of two stages:
+
+\begin{enumerate}
+\item Exact (or high order) resolution of the system of conservation laws starting
+from the cell averages of the previous time-step. This resolution is performed
+during a short time \( \tau  \) so that the Riemann problems of the two sides
+of each cell do not interact.
+\item The result of the previous stage is no longer constant in the cells. A projection
+is then realized in order to recover a piecewise constant approximation. For
+a first order scheme, the only conservative projection is cell averaging.
+\end{enumerate}
+This description is of course theoretical. In practice, a numerical flux can
+be associated to this procedure so that the two stages become transparent in
+the implementation of the scheme.
+
+The first scheme designed in this way is described by Godunov in
+\cite{godunov59}. We shall call in the sequel this kind of scheme,
+based on an exact or approximate Riemann solver, a \textbf{Godunov
+scheme}. This terminology is developed in the review paper of
+Harten, Lax and Van Leer \cite{harten_lax_vanleer_83}. Most of the
+conservative schemes can be put in this framework as the HLL
+scheme \cite{harten_lax_vanleer_83}, HLLC scheme of Toro, Spruce
+and Speares \cite{toro94}, Roe scheme \cite{roe81}, Engquist-Osher
+scheme \cite{osher81}, kinetic schemes \cite{deshpande88},
+\cite{perthame90}, \cite{mazet89}, and many others...
+
+The original Godunov scheme has the important property that it
+respects on the discrete level the decrease of all the Lax
+entropies of the approximated hyperbolic system. This is an
+important property which is closely linked to the stability of the
+scheme and with the possibility of non-physical waves if the
+scheme is not entropic. For example, the HLL, HLLC and
+Engquist-Osher schemes are entropic whereas the original Roe
+scheme is not entropic. With a simple modification, it can be made
+entropic (for example, see the fix of Harten and Hyman
+\cite{harten83}).
+
+Another important feature emerging from the construction of the
+Godunov schemes is that the cell values are high order
+approximations of the exact mean values. They are also second
+order approximations of the exact values in the center of the
+cells. Unfortunately, because they are only first order
+approximations on the cell sides, an error of order one is
+committed in the computation of the numerical flux.
+
+These remarks have been used to improve the precision of Godunov schemes. The
+most widespread improvement consists of reconstructing a more precise approximation
+of the solution by using cell averages and Taylor expansions. This reconstruction
+allows one to compute more accurately the fluxes, but has to be corrected by
+a limitation procedure in order to avoid oscillations or non physical values.
+
+The main criterion in these methods is a TVD (Total Variation
+Diminishing) criterion. Many works deal with second order Godunov
+schemes (we can cite for example the works of Van Leer
+\cite{vanleer79} or Harten \cite{harten_osher82}) which give good
+numerical results in various practical computations. Anyway, since
+the work of Rauch \cite{rauch86} it is well known that the TVD
+criterions are inadequate in the theoretical study of systems of
+conservation laws in higher dimensions. There is no hope to prove
+convergence results in a general framework with these
+limitations\footnote{It should also be noticed that the TVD
+criterion is limited to cartesian grids in the multi-d case, even
+for scalar equations.}.
+
+In this paper, another approach is followed, which is closer to
+the Godunov's original idea. On the one hand, we shall consider
+the resolution of a generalized Riemann problem with piecewise
+linear (instead of constant) initial data. The solution will then
+have to be projected back onto a set of piecewise linear
+functions. On the other hand, in the projection step, we
+substitute for the TVD criterion a mean entropy decreasing
+criterion which seems more adequate for systems. An important
+feature is that this \textbf{stability criterion will be verified
+for the whole family of entropies of the system}. Such an approach
+has been initiated for scalar conservation laws by Bouchut,
+Bourdarias and Perthame in \cite{bouchut_pertham93} and has been
+extended to 2x2 systems of conservation laws and to the 3x3 system
+of Lagrangian gas dynamics by Coquel and Le Floch in
+\cite{coquel_lefloch95}. Our paper deals with the case of the
+Euler system.
+
+The first part is devoted to a mathematical study of the
+projection stage. The problem can be stated in the following way:
+the three conservative variables, after the Riemann problem step
+are, generally speaking, piecewise regular functions in each cell
+of the finite volume method. The goal of the projection is to
+recover linear variables in the cells in order to pursue the
+resolution. Because the mean values of these variables are given
+by the conservation property, it is sufficient to compute three
+slopes. The projection can then be seen as the operator which
+gives these slopes from the original piecewise regular
+conservatives variables in the cells. It is known that this
+operator can not be linear. Indeed, it can be proved that a
+general linear projection (such as the classical $L^2$ projection)
+will not always respect the positivity of the projected density
+and pressure. It is of course linked to the fact that there is no
+second order linear three point scheme which is also TVD for the
+scalar conservation laws (see \cite{raviart}). Because we are
+working on systems we will require that the projection operator is
+entropic. By entropic, we mean that the mean value in each cell of
+the entropy of the projection is smaller than the mean entropy of
+the original conservative variables. It is very interesting that
+\textbf{this entropy diminishing property gives also the
+positivity of the projected variables}. This result is proved in
+remark \ref{posit}.
+
+Here, we are able to prove the existence of a non-linear
+projection for the Euler equations and provide explicit formulas.
+The construction is based on several ingredients:
+\begin{itemize}
+  \item First, we recall the theory of second order entropic
+  projections of \cite{bouchut_pertham93}. This theory is based on the definition of an
+  approximate derivative (Definition \ref{defN}) and a sufficient
+  condition in order to have an entropic projection (Theorem
+  \ref{theorem:perth}). A very nice feature of this theory is
+  that, when applied to a scalar conservation law, the entropic
+  projection is very similar to a classical minmod limiter.
+  \item This sufficient condition is not exploitable as is for the Euler system, and it does
+  not give easily an explicit formula for the slopes of the
+  projection. Thus we propose to seek the projection as the
+  composition of two non-linear operators. To build the first operator, we
+  work with special variables (density, momentum and a particular
+  entropy) for which the sufficient condition of Theorem \ref{theorem:perth}
+  can be computed. We then reduce the
+  first step of the projection to the solution of \textbf{a
+  triangular set of inequalities} (\ref{inegener1}), (\ref{inegener2})
+  and (\ref{inegentrop}) for the three slopes.
+  \item The first operator is not conservative for the energy. The
+  mean value of the projected energy has thus to be corrected. We
+  prove that the correction is still entropy diminishing and thus does
+  not impede the whole process. This fact can also be used by
+ to built simple entropic schemes for the Euler
+  equations based on the intermediate solution of the entropy
+  conservation law.
+  \item Finally, we provide formulas that explicitly
+  solve the fundamental triangular set of inequalities for the slopes.
+  These formulas are summed up in Theorem \ref{maintheo}.
+\end{itemize}
+
+
+The second part of the paper is then devoted to several numerical
+experiments with the previously constructed projection. One
+approach could have been to develop a generalized Riemann solver
+as in \cite{coquel_lefloch95} for the gas dynamics equations in
+Lagrangian coordinates. The theory of the generalized Riemann
+problem can be found, for example, in the papers of Bourgeade, Le
+Floch, Raviart \cite{bourgeade89}, Ben Artzi, Falcovitz
+\cite{benartzi86}. It is also sketched in the book of Godlewski
+and Raviart \cite{raviart}. The problem is that the implementation
+of this solver is very complex. So we prefer to follow here much
+simpler approaches. We present two kinds of numerical results:
+\begin{itemize}
+    \item The first are obtained with a second order kinetic scheme.
+    We use the Boltzmann kinetic interpretation of the Euler equations in
+    order to construct an approximate second order Riemann solver.
+    For the computations, we choose a compactly
+supported Maxwellian proposed by Perthame \cite{perthame90}. But
+instead of taking a piecewise constant density function in the
+microscopic scheme, we take a piecewise linear density function.
+The free transport Boltzmann equation can then be solved exactly.
+A second order approximate Riemann solver is then obtained by
+taking the moments of the resulting microscopic solution. After
+the Boltzmann step, the solution is piecewise polynomial in each
+cell and can be computed explicitly. We are then in a position to
+apply the results of the first part of the paper and provide some
+numerical experiments which validate the whole procedure.
+    \item The previous construction is quite complicated. So we
+    propose also another approach. We do not try to construct a
+    high order Riemann solver but reconstruct a high order
+    approximation of the solution from its cell averages. The cell
+    averages are computed with a standard Godunov flux. Without
+    limitations, the scheme would present oscillations. We then
+    apply the entropic projection to the reconstruction in order
+    to evaluate the damping of the oscillations.
+\end{itemize}
+
+We conclude the paper with some comments about possible extensions
+and applications of the entropic projection.
+
+\section{Entropy solution of Euler equations}
+
+
+\subsection{Euler equations}
+
+In the present paper we focus our attention on the numerical approximation of
+the discontinuous solutions of the Euler system for polytropic gases. With standard
+notation, this system reads:
+\begin{eqnarray}
+\partial _{t}w+\partial _{x}f(w) & = & 0,\quad t>0,\quad x\in R,\label{slc} \\
+w(0,x) & = & w_{0}(x),\nonumber
+\end{eqnarray}
+ where
+\[
+w=\left( \begin{array}{c}
+\rho \\
+\rho u\\
+E
+\end{array}\right) ,\quad f(w)=\left( \begin{array}{c}
+\rho u\\
+\rho u^{2}+p\\
+(E+p)u
+\end{array}\right) ,\]
+and
+\begin{eqnarray*}
+E & = & \rho \varepsilon +\frac{(\rho u)^{2}}{2\rho },\\
+p & = & (\gamma -1)\rho \varepsilon ,\quad \gamma >1.
+\end{eqnarray*}
+It is well known that this system is strictly hyperbolic over the phase space
+\[
+\Omega =\{w\in R^{3},\rho >0,\rho u\in R,E-\frac{(\rho u)^{2}}{2\rho }>0\}.\]
+
+
+
+\subsection{Entropy condition}
+
+Generally, the weak solution of (\ref{slc}) is not unique. Assuming that theoretical
+results for scalar conservation laws extend to systems, an entropy condition
+has to be added to the Euler system in order to recover uniqueness.
+
+\begin{defn}
+Let \( U(w) \) be a convex function of \( w \), and let \( F(w) \) be a function
+such that the following additional conservation law holds whenever \( w \)
+is a  strong solution
+\[
+\partial _{t}U(w)+\partial _{x}F(w)=0.\]
+ \( (U,F) \) is then called a Lax entropy pair for the system (\ref{slc})
+(\( U \) is the entropy and \( F \) the entropy flux).
+\begin{defn}
+A weak solution \( w(t,x) \) of (\ref{slc}) is an entropy solution if and
+only if for every entropy pair \( (U,F) \), the following inequality holds
+\[
+\partial _{t}U(w)+\partial _{x}F(w)\leq 0,\quad t>0,\quad x\in R.\]
+
+\end{defn}
+The previous notions have been introduced by Lax in \cite{lax72} for general
+systems of conservation laws. The mathematical existence and uniqueness of the
+entropy solution is still an open problem. In this paper this well-posedness
+result is supposed to hold.
+
+The practical computation of the Lax entropies for the Euler system is given
+for example (among many others) in the PhD thesis of Croisille \cite{croisille91}
+or in the book of Raviart and Godlewski \cite{raviart96}. It appears that a
+family of regular entropies can be constructed in the following way: let us
+introduce the following quantity
+\[
+S=(\rho \varepsilon )^{1/\gamma }.\]
+ It can be checked that \( (-S,-uS) \) is a Lax entropy pair of the Euler system.
+We now consider the family \( (U,uU) \) defined by
+\[
+U=\rho G(\frac{S}{\rho }),\]
+ where \( G \) is a \( C^{2} \) function on \( R^{+*} \) such that
+\[
+G'<0\textrm{ and }G''>0.\]
+ It is proved in \cite{croisille91} that this construction gives all the \( C^{2} \)
+entropies of the Euler system of the form \( (U,F) \) with \( F=uU \). Another
+expression of the entropies is given by
+\[
+U=\rho H(\frac{\rho }{S}),\]
+ where \( H \) is a \( C^{2} \) function on \( R^{+*} \) such that
+\[
+H'(x)+xH''(x)>0,\quad x\in R^{+*}.\]
+
+
+
+\section{Generalized Godunov scheme}
+
+\end{defn}
+The framework of generalized second order Godunov schemes approximating (\ref{slc})
+can now be stated.
+
+A time-step \( \tau >0 \), and a space-step \( h>0 \) being given, we consider
+the following discretization in time \( t_{n}=n\tau  \) \( (n\geq 0) \) and
+space \( x_{i}=ih \) \( (i\in \mathbf{Z}) \). The cell \( i \) is defined
+by \( C_{i}=\left] x_{i-1/2},x_{i+1/2}\right[  \).
+
+We start with an approximation of \( w(t_{n},x) \) at time \( t_{n} \)
+\[
+w^{n}(x)\approx w(t_{n},x),\]
+ which is supposed to be piecewise linear with
+\[
+w^{n}(x)=w_{i}^{n}+s_{i}^{n}(x-x_{i}),\quad \textrm{ }\forall x\in C_{i},\]
+ (in the classical Godunov scheme \( s_{n}^{i}=0 \)).
+
+\begin{rem}
+\label{changevar}To be more general, we can also consider another set of variables
+given by a regular transformation:
+\[
+\phi =\phi (w),\quad w\in \Omega ,\]
+and suppose that \( \phi  \) is piecewise linear:
+\[
+w^{n}(x)=\phi ^{-1}(\phi _{i}^{n}+d_{i}^{n}(x-x_{i})),\quad \textrm{ }\forall x\in C_{i}.\]
+This approach will be developed in the next part.
+\end{rem}
+In order to compute a new \( w^{n+1}(x) \), two steps are then performed:
+
+\begin{enumerate}
+\item First, the Euler equations and the entropy conditions are exactly solved during
+a short period of time \( \tau : \)
+\begin{eqnarray*}
+ &  & \partial _{t}v+\partial _{x}f(v)=0\quad t>0,\quad x\in R,\\
+ &  & \partial _{t}U(v)+\partial _{x}F(v)\leq 0,\\
+ &  & v(0,x)=w^{n}(x),
+\end{eqnarray*}
+ and this is done for all Lax entropy pairs \( (U,F) \). The solution \( v(\tau ,x) \)
+will be denoted by \( w^{n+1,-}(x) \) and is generally no longer linear in
+each cell.
+\item \( w^{n+1,-}(x) \) has to be approximated again by a piecewise linear function.
+Let \( P^{1}_{h} \) be the space of piecewise (per cell) linear functions,
+then we look for a (possibly non linear) operator \( \Pi :L^{\infty }(R)\rightarrow P^{1}_{h} \)
+such that
+\[
+w^{n+1}(x)=\Pi \, w^{n+1,-}(x).\]
+ \( \Pi  \) is also supposed to be a projection in the sense that \( \Pi w=w \)
+whenever \( w\in P^{1}_{h} \).
+\end{enumerate}
+In the case of the classical first order Godunov scheme the projection consists
+simply of cell-averaging
+\[
+\Pi w(x)=\overline{w}=\frac{1}{h}\int _{C_{i}}w,\quad x\in C_{i},\quad i\in Z.\]
+
+
+If the projection is an approximation of order 2 (with respect to \( h \))
+of \( w^{n+1,-} \), then the resulting scheme is of order 2 in space (and of
+order 1 in time) in the sense of consistency. But good precision will be achieved
+only under some stability conditions. We shall now describe a possible set of
+stability conditions.
+
+
+\section{entropy diminishing projection}
+
+As mentioned in the introduction, we wish to generalize the Godunov idea to
+second order schemes. The first step consists of solving exactly (or at least
+with given precision) generalized Riemann problems between two cells starting
+from a piecewise linear approximation of the solution. Actually, in order to
+be more general, we shall consider in each cell the case of an initial condition
+in a finite dimensional manifold \( M \) of regular functions defined on the
+cell. It is clear that after the exact resolution step, the solution is, generally
+speaking, no longer in \( M \). A regular approximation in the cell has to
+be recovered, with the decrease of entropies.
+
+A second order Riemann solver will be constructed later on, and in this part
+we focus only on the projection step of the Godunov method.
+
+
+\subsection{Second order entropy diminishing projections}
+
+Because we are looking for a projection defined locally, i.e. on each cell \( C_{i} \),
+we can suppose, for simplicity, that \( C_{i}=]0,1[ \). The projection problem
+can then be presented in the following abstract setting (introduced in \cite{bouchut_pertham93},
+\cite{coquel_lefloch95}):
+
+\begin{defn}
+Let \( M \) be a finite dimension manifold included in \( C^{\infty }([0,1],\Omega ) \).
+Let \( w=(\rho ,\rho u,E)^{T} \) be an element of \( L^{\infty }\cap BV([0,1],\Omega ) \),
+and let \( \Pi  \) be a (generally non-linear) projection from \( L^{\infty }\cap BV([0,1],\Omega ) \)
+into \( M \) which satisfies the following property: for all Lax entropy pairs
+\( (U,F) \),
+\begin{equation}
+\label{entronum}
+\int ^{1}_{0}U(\Pi w(x))dx\leq \int ^{1}_{0}U(w(x))dx.
+\end{equation}
+ Such an operator will be denoted as an \textbf{entropy diminishing projection}
+on \( M \).
+\end{defn}
+Let us note that condition (\ref{entronum}) implies a conservation property.
+Indeed, when applied to the following degenerate entropies:
+\[
+U(w)=\pm \rho ,\quad U(w)=\pm \rho u,\quad U(w)=\pm E,\]
+we get
+\[
+\overline{w}:=\int ^{1}_{0}\Pi w(x)dx=\int ^{1}_{0}w(x)dx.\]
+
+
+In the classical Godunov method, \( M \) is the set of constant states which
+are in \( \Omega  \) and the projection is given by
+\[
+\Pi w=\overline{w}.\]
+Inequality (\ref{entronum}) then holds thanks to the Jensen inequality. The
+problem here is that we are looking for an approximation of the function \( w \)
+which is of order two when rescaled to an interval of size \( h \). Let us
+define precisely this second order property.
+
+\begin{defn}
+Let \( \Pi  \) be an entropy diminishing projection from \( L^{\infty }\cap BV([0,1],\Omega ) \)
+into \( M \). Let \( \widetilde{w} \) be an element of \( C^{2}([0,h],\Omega ) \)
+and \( w(x)=\widetilde{w}(xh),\quad x\in [0,1]. \) After projection of \( w \)
+we can define
+\[
+\widetilde{\Pi }\widetilde{w}(t):=\Pi w(\frac{t}{h}),\quad t\in [0,h],\]
+then \( \Pi  \) is said to be a \textbf{second order entropy diminishing projection}
+if
+\begin{equation}
+\label{ordre2}
+\left| \widetilde{\Pi }\widetilde{w}(t)-\widetilde{w}(t)\right| \leq \lambda h^{2},
+\end{equation}
+where \( \lambda  \) is a constant which depends only on the \( C^{2} \) norm
+of \( \widetilde{w} \).
+\end{defn}
+As we have seen before, in the case of first order Godunov scheme, the first
+order entropy diminishing projection is necessarily unique. On the other hand,
+there exist many second order entropy diminishing projections with various choices
+of manifolds \( M \). In the sequel, we recall a general framework which allows
+the construction of second order entropy diminishing projections. We then use
+special features of the Euler equations to build a simple explicit projection
+for this hyperbolic system.
+
+
+\subsection{Pseudo-derivative}
+
+We are going to derive a sufficient condition on \( \Pi  \) in order to satisfy
+the very important inequality (\ref{entronum}). It is based on the following
+notion of (what we decided to call) pseudo-derivative which was introduced first
+by Bouchut, Bourdarias and Perthame in \cite{bouchut_pertham93} in the case
+of a scalar equation. It was also studied by Coquel and Le Floch in \cite{coquel_lefloch95}
+for systems.
+
+\begin{defn}\label{defN}
+Let \( w \) be an element of \( L^{\infty }\cap BV([0,1],\Omega ) \) . The
+\textbf{pseudo-derivative} of \( w \) is the continuous function \( N(w)\in C(]0,1[,R^{3}) \)
+defined by
+\[
+N(w)(x)=\frac{2}{1-x}\int _{x}^{1}w(t)dt-\frac{2}{x}\int _{0}^{x}w(t)dt.\]
+
+\end{defn}
+The linear operator \( N \) satisfies the following properties:
+
+\begin{itemize}
+\item For all constants \( C \), \( N(w+C)=N(w). \) \item If \( w
+\) is regular enough, \( N(w)(x)=\int _{0}^{1}\varphi (x,t)w'(t)dt
+\). Where the graph of \( t\rightarrow \varphi(x,t)  \) is given
+below
+
+{\par\centering \unitlength=1.5cm \begin{picture}(6,5)
+\put(0,0){\vector(0,4){5}} \put(1,0){\circle*{.1}} \put(1,-.3){0}
+\put(4,0){\circle*{.1}} \put(4,-.3){1} \put(1,0){\line(1,3){1}}
+\put(4,0){\line(-2,3){2}} \put(2,3){\circle*{.1}}
+\put(2,3){\line(-1,0){2}} \put(2,3){\line(0,-1){3}} \put(2,-.3){x}
+\put(5,-.3){t} \put(.3,4){\(\varphi(x,t)\)} \put(-.3,3){\(2\)}
+\put(0,0){\vector(1,0){5}}
+\end{picture}\par}
+
+\end{itemize}
+\vspace{1cm}
+
+\begin{itemize}
+\item If \( w \) is regular, for all \( x\in ]0,1[ \) there is a \( \theta (x)\in ]0,1[ \)
+such that
+\begin{equation}
+\label{deriv}
+N(w)(x)=w^{\prime }(\theta (x)).
+\end{equation}
+
+\item If \( \overline{w}=\int _{0}^{1}w(t)dt=0 \) then
+\[
+-\frac{x(1-x)}{2}N(w)(x)=\int _{0}^{x}w(t)dt.\]
+
+\item Finally, if \( \overline{w}=\int _{0}^{1}w(t)dt=0 \), the following integration
+by parts formula holds
+\[
+\int _{0}^{1}v(t)w(t)dt=\int _{0}^{1}\frac{t(1-t)}{2}N(w)(t)v^{\prime }(t)dt.\]
+
+\end{itemize}
+A sufficient condition for the decrease of the mean entropy can then be stated.
+
+\begin{thm}
+\label{theorem:perth}Let \( \Pi  \) be a projection from \( L^{\infty }\cap BV([0,1],\Omega ) \)
+into \( M \). If for all \( w\in L^{\infty }\cap BV([0,1],\Omega ) \), all
+\( x\in ]0,1[ \), and all entropies \( U \),
+\begin{equation}
+\label{cs}
+d_{x}\Pi w\cdot U''(\Pi w)(x)(N(w)(x)-d_{x}\Pi w)\geq 0,
+\end{equation}
+ then, \( \Pi  \) is an entropy diminishing projection.
+\end{thm}
+\begin{proof}
+This is a consequence of the basic convex inequality
+\[
+\int _{0}^{1}U(w)-U(\Pi w)\geq \int _{0}^{1}U'(\Pi w)(w-\Pi w)\]
+
+\[
+=\int _{0}^{1}U'(\Pi w)(\overline{w}-\overline{\Pi w})\]
+\begin{equation}
+\label{ineg}
++\int _{0}^{1}\frac{t(1-t)}{2}d_{x}\Pi w\cdot U''(\Pi w)(t)(N(w)(t)-d_{x}\Pi w)dt.
+\end{equation}
+
+\end{proof}
+At this stage, condition (\ref{cs}) would provide us with a practical definition
+of \( \Pi w \) if we were studying a scalar equation instead of the Euler system
+(see \cite{bouchut_pertham93}). Using the convexity of entropies \( U \),
+the previous condition reduces to
+\begin{equation}
+\label{minmod:scal} d_{x}\Pi w \cdot (N(w)(x)-d_{x}\Pi w)\geq 0.
+\end{equation}
+
+
+Define the minmod function of a set of reals as
+\[
+\textrm{minmod }E=\left| \begin{array}{l}
+\textrm{inf }E\textrm{ if }E\subset R^{+}\\
+\textrm{sup }E\textrm{ if }E\subset R^{-}\\
+0\textrm{ otherwise}
+\end{array}\right. ,\]
+
+
+then a possible choice for \( \Pi w \) is the linear function \( \Pi w(x)=\overline{w}+d_{x}\Pi w(x-1/2) \)
+where the real number \( d_{x}\Pi w \) is defined by
+\begin{equation}
+\label{minmodscal}
+d_{x}\Pi w=\textrm{minmod}\{N(w)(x),\quad x\in ]0,1[\}.
+\end{equation}
+
+
+This defines a second order entropy diminishing projection thanks to property
+(\ref{deriv}).
+
+In the case of a system of conservation laws, \( U''(\Pi w)(x) \) are positive
+definite matrices which define a metric for all values of \( x\in ]0,1[ \).
+If that metric was constant then we may define \( d_{x}\Pi w \) as the vector
+in the convex envelope \( N^{\circ } \) of \( \{N(w)(x),\; x\in ]0,1[\} \)
+that minimizes the norm associated to the metric i.e.:
+\begin{equation}
+d_{x}\Pi w^{T}\cdot U''\cdot d_{x}\Pi w=\min _{v\in N^{\circ }}v^{T}\cdot U''\cdot v\quad .
+\end{equation}
+ But since the metric is changing with \( x \), the practical use of condition
+(\ref{cs}) is not at all straightforward. The inequality can however be used
+to establish the existence of a solution (see \cite{coquel_lefloch95}) and
+to derive a family of projections that partially (that is to say up to a certain
+order \( n \)) fulfill it (see for an example \cite{coquel_lefloch95}).
+
+In the next section, we adapt the previous method in order to build an exact
+second order entropy diminishing projection in the case of the Euler equations.
+
+
+\section{Explicit computation of the projection: Euler case\label{expl}}
+
+The starting point of the explicit projection procedure is an element
+\[
+w_{0}=(\rho _{0},q_{0}=\rho _{0}u_{0},E_{0})^{T}\in L^{\infty }\cap BV([0,1],\Omega ).\]
+In the sequel , we will denote by \( \Pi  \) a second order entropy diminishing
+projection. The projection \( w_{2}=\Pi w_{0} \) thus belongs to \( C^{\infty }([0,1],\Omega ). \)
+For practical reasons, \( w_{2} \) will be obtained from an intermediate state,
+noted \( w_{1}=(\rho _{1},q_{1}=\rho _{1}u_{1},E_{1})^{T}\in C^{\infty }([0,1],\Omega ) \).
+In other words, \( w_{1}=\Pi _{1}w_{0} \), and our explicit projection \( \Pi  \)
+is the composition of two operators \( \Pi _{1} \) and \( \Pi _{2} \):
+\[
+\Pi =\Pi _{2}\circ \Pi _{1}.\]
+
+
+Let us first describe operator \( \Pi _{1}. \) We have seen in the introduction
+that all the \( C^{2} \) entropies of the Euler system have a rather simple
+form when expressed as a function of the quantity \( S=(\rho \varepsilon )^{1/\gamma } \)
+. We thus define
+\[
+S_{0}=(E_{0}-\frac{1}{2}\rho _{0}u_{0}^{2})^{1/\gamma }.\]
+On the other hand, we wish \( w_{1} \) to be \( C^{\infty } \). A simple possibility
+is to set
+\begin{equation}
+\label{defS1}
+S_{1}=\overline{S_{0}}+dS_{1}(x-1/2)
+\end{equation}
+\begin{equation}
+\label{defrho1}
+\rho _{1}=\overline{\rho _{0}}+d\rho _{1}(x-1/2)
+\end{equation}
+\begin{equation}
+\label{defq1}
+q_{1}=\overline{q_{0}}+dq_{1}(x-1/2)
+\end{equation}
+where, as before, \( \overline{z} \) is a notation for the mean value of the
+quantity \( z \) on the interval \( [0,1]. \) The real numbers \( dS_{1}, \)
+\( d\rho _{1}, \) \( dq_{1} \) are to be guessed (and will be defined explicitly
+in the sequel).With our choice, the quantities \( S_{1}, \) \( \rho _{1}, \)
+\( q_{1} \) are thus linear in the cell \( [0,1] \) and have the same mean
+values as \( S_{0}, \) \( \rho _{0}, \) \( q_{0} \).
+
+Setting
+\begin{equation}
+\label{defw1}
+w_{1}=(\rho _{1},q_{1},E_{1}=\frac{1}{2}\rho _{1}u^{2}_{1}+S_{1}^{\gamma }),
+\end{equation}
+ it is clear that \( w_{1} \) is regular but not linear in the cell. It is
+also clear that, since \( \overline{S_{1}}=\overline{S_{0}} \), the first projection
+operator \( \Pi _{1} \) is not conservative in the sense that, in general,
+density and impulsion are conserved but not energy. Thus
+\[
+\overline{q_{1}}=\overline{q_{0}},\quad \overline{\rho _{1}}=\overline{\rho _{0}},\quad \overline{E_{1}}\neq \overline{E_{0}}.\]
+This fact justifies the necessity of a correction \( w_{2}=\Pi _{2}w_{1} \),
+if this approach is employed, in order to recover the conservation of energy.
+
+The simplest way to obtain \( w_{2} \) is to correct the energy by taking
+\[
+\rho _{2}=\rho _{1},\]
+\[
+q_{2}=\rho _{2}u_{2}=q_{1},\]
+\[
+E_{2}=E_{1}-\overline{E_{1}}+\overline{E_{0}},\]
+
+
+But with this choice, the operator \( w_{0}\rightarrow w_{2} \) is not a projection.
+For this reason, we prefer to take
+\begin{equation}
+\label{correcE}
+E_{2}=\frac{1}{2}\rho _{1}u^{2}_{1}+(K+S_{1})^{\gamma },
+\end{equation}
+where the constant \( K \) should be chosen in such a way that
+\begin{equation}
+\label{conservE}
+\overline{E_{2}}=\overline{E_{0}}.
+\end{equation}
+We suggest then to define the approximation manifold \( M \) by:
+
+\begin{defn}
+\label{defM}\( M \) is the set of vector functions \( w=x\rightarrow (\rho (x),q(x),\frac{q(x)^{2}}{2\rho (x)}+S(x)^{\gamma }) \)
+defined on \( [0,1] \) such that the functions \( \rho  \), \( q \), and
+\( S \) are linear and such that \( \forall x\in [0,1],\quad w(x)\in \Omega  \)
+(which is equivalent to \( \forall x\in [0,1],\quad \rho >0,\quad S>0 \)).
+\end{defn}
+In other words, according to the notations of Remark
+\ref{changevar} (page \pageref{changevar}), we have simply set \(
+\phi =(\rho ,\rho u,S) \).
+
+The problem is now to verify that the correction (\ref{correcE}) can be done
+with the decrease of any entropy \( U \):
+\[
+\int U(\rho _{2},q_{2},E_{2})\leq \int U(\rho _{1},q_{1},E_{1}).\]
+
+
+But the convexity of \( U \) with respect to the conservative variables gives
+\[
+\int U(\rho _{1},q_{1},E_{1})\geq \int U(\rho _{2},q_{2},E_{2})+\int \frac{\partial U}{\partial E}(w_{2})(E_{1}-E_{2}).\]
+On the other hand, we know that
+\[
+\frac{\partial U}{\partial E}(w)=\rho G'(\frac{S}{\rho })\frac{\partial S}{\partial E},\]
+\[
+\textrm{and }S=(E-\frac{q^{2}}{2\rho })^{1/\gamma }\Rightarrow \frac{\partial S}{\partial E}=\frac{1}{\gamma }S^{1-\gamma }>0,\]
+ which implies that \( \frac{\partial U}{\partial E}<0 \) on the phase space
+\( \Omega  \). It is thus natural to require that, \( E_{1}-E_{0}<0 \) on
+the cell, or, in an equivalent way, that
+\[
+K\geq 0.\]
+Actually, it will be more convenient (and it is possible) to ask a little bit
+more. We know that the energy is the sum of two terms:
+\[
+E=\frac{q^{2}}{2\rho }+S^{\gamma },\]
+ and we will require the decrease of these two terms separately:
+\begin{equation}
+\label{inegener1}
+\int \frac{q_{1}^{2}}{2\rho _{1}}\leq \int \frac{q_{0}^{2}}{2\rho _{0}},
+\end{equation}
+and
+\begin{equation}
+\label{inegener2}
+\int C(S_{1})\leq \int C(S_{0})\quad \forall C\in C^{2}(R,R),\textrm{ convex}.
+\end{equation}
+In order that the global process \( \Pi =\Pi _{2}\circ \Pi _{1} \)be entropy
+decreasing, it is finally sufficient to require the last family of inequalities
+\begin{equation}
+\label{inegentrop}
+\int \rho _{1}H(\frac{S_{1}}{\rho _{1}})dx\leq \int \rho _{0}H(\frac{S_{0}}{\rho _{0}}),
+\end{equation}
+where \( H \) is any \( C^{2} \) function on \( R^{+*} \) such that
+\[
+H'(x)+xH''(x)>0,\quad x\in R^{+*}.\]
+
+
+\begin{rem}\label{posit}
+Inequality (\ref{inegener2}) automatically enforces \( S_{1}>0 \) on \( ]0,1[ \).
+Indeed, consider a \( C^{2}(R,R) \) convex function \( C \) satisfying
+\begin{eqnarray*}
+C(y)=0 & \textrm{when} & y\geq 0,\\
+C(y)>0 & \textrm{when} & y<0,
+\end{eqnarray*}
+then, because \( S_{0}>0 \), we have \( 0\leq \int C(S_{1})\leq \int C(S_{0})=0 \)
+and then \( S_{1}>0 \). In the same way, inequality (\ref{inegentrop}) implies
+that \( \rho _{1}>0 \) if we suppose that \( S_{0}>0 \), \( S_{1}>0 \) and
+\( \rho _{0}>0 \). These properties are very important for the numerical approximation
+of the Euler equations. They ensure that the resulting second order entropy
+diminishing scheme is also a positive scheme.
+\end{rem}
+We sum up the previous construction in the following proposition:
+
+\begin{prop}
+Let \( w_{0}=(\rho _{0},q_{0}=\rho _{0}u_{0},E_{0})^{T}\in
+L^{\infty }\cap BV([0,1],\Omega ) \), and let \( w_{1}=(\rho
+_{1},q_{1}=\rho _{1}u_{1},E_{1}=\frac{1}{2}\rho
+_{1}u_{1}^{2}+S_{1}^{\gamma })^{T}\in C^{\infty }([0,1],\Omega )
+\) where \( \rho _{1} \), \( q_{1} \), and \( S_{1} \) are linear
+functions defined by (\ref{defS1}), (\ref{defrho1}),
+(\ref{defq1}). Suppose that the slopes of \( \rho _{1} \), \(
+q_{1} \), and \( S_{1} \) are computed in order to satisfy
+(\ref{inegener1}), (\ref{inegener2}), (\ref{inegentrop}). Let
+finally \( w_{2}=(\rho _{1},q_{1},E_{2})^{T}\in C^{\infty
+}([0,1],\Omega ) \), where \( E_{2} \) is corrected according to
+(\ref{correcE}) and (\ref{conservE}). Then, the non-linear
+operator \( \Pi :w_{0}\rightarrow w_{2} \) is an entropy
+diminishing projection on the manifold \( M \) of definition
+\ref{defM} (on page \pageref{defM}).
+\end{prop}
+The construction of an entropy diminishing second order projection is now reduced
+to the computation of three slopes \( dS_{1} \), \( d\rho _{1} \), and \( dq_{1} \)
+satisfying inequalities (\ref{inegener1}), (\ref{inegener2}) and (\ref{inegentrop}).
+The important fact is that we have now to solve a \textbf{triangular} set of
+inequalities. In practice, we will have first to find a \( dS_{1} \) satisfying
+(\ref{inegener2}). Then our choice of \( S_{1} \) will be inserted in (\ref{inegentrop})
+in order to get \( d\rho _{1} \). Then, knowing \( S_{1} \) and \( \rho _{1} \),
+we are in a position to solve (\ref{inegener1}) and compute \( q_{1} \).
+
+The computation of \( S_{1} \) is quite simple if we apply the computations
+leading to formula (\ref{minmodscal}). We thus propose
+\begin{equation}
+\label{minmodS}
+dS_{1}=\textrm{minmod}\left\{ N(S_{0})(x),\quad x\in [0,1]\right\} .
+\end{equation}
+For the evaluation of \( d\rho _{1} \) a longer computation has to be performed.
+
+\begin{lem}
+Let \( \rho _{0} \) and \( S_{0} \) be two positive functions in \( L^{\infty }\cap BV([0,1],R) \).
+Let \( \rho _{1} \) and \( S_{1} \) be two positive and linear functions defined
+on \( [0,1] \):
+\begin{equation}
+\label{linear:S}
+S_{1}=\overline{S_{0}}+dS_{1}(x-1/2),
+\end{equation}
+\begin{equation}
+\label{linear:rho}
+\rho _{1}=\overline{\rho _{0}}+d\rho _{1}(x-1/2).
+\end{equation}
+Then, a sufficient condition on the slope \( d\rho _{1} \) in order to have
+(\ref{inegentrop}) is that the following inequality holds on \( [0,1] \):
+\begin{equation}
+\label{ineg:rho}
+\alpha \cdot \left( \frac{S_{1}}{\overline{S_{0}}}(\overline{S_{0}}N(\rho _{0})-\overline{\rho _{0}}N(S_{0}))-\frac{\overline{S_{0}}+N(S_{0})(x-1/2)}{\overline{S_{0}}}\alpha \right) \geq 0,
+\end{equation}
+where \( \alpha  \) is defined by \( \alpha =\overline{S_{0}}d\rho _{1}-\overline{\rho _{0}}dS_{1} \).
+\end{lem}
+\begin{proof}
+It is easy to check that \( (\rho ,S)\rightarrow \rho H(S/\rho )
+\) is a convex function. Thus, using Theorem \ref{theorem:perth},
+a sufficient condition in order to have (\ref{inegentrop}) is
+\[
+(d\rho _{1},dS_{1})\left( \begin{array}{cc}
+1 & -\frac{\rho _{1}}{S_{1}}\\
+-\frac{\rho _{1}}{S_{1}} & \left( \frac{\rho _{1}}{S_{1}}\right) ^{2}
+\end{array}\right) \left( \begin{array}{c}
+N(\rho _{0})-d\rho _{1}\\
+N(S_{0})-dS_{1}
+\end{array}\right) \geq 0,\]
+or
+\[
+(S_{1}d\rho _{1}-\rho _{1}dS_{1})(S_{1}N(\rho _{0})-\rho _{1}N(S_{0})-(S_{1}d\rho _{1}-\rho _{1}dS_{1}))\geq 0.\]
+using (\ref{linear:S}) and (\ref{linear:rho}), and thanks to basic computations,
+we find (\ref{ineg:rho}).
+\end{proof}
+The slope \( dq_{1} \) is computed in the same spirit.
+
+\begin{lem}
+Let \( q_{0} \) and \( \rho _{0} \) be two functions in \( L^{\infty }\cap BV([0,1],R) \),
+with \( \rho _{0}>0 \). Let \( q_{1} \) and \( \rho _{1} \) be two linear
+functions defined on \( [0,1] \), with \( \rho _{1}>0 \).
+\begin{equation}
+\label{linear:q}
+q_{1}=\overline{q_{0}}+dq_{1}(x-1/2),
+\end{equation}
+\[
+\rho _{1}=\overline{\rho _{0}}+d\rho _{1}(x-1/2).\]
+Then, a sufficient condition on the slope \( dq_{1} \) in order to have (\ref{inegener1})
+is that the following inequality holds on \( [0,1] \)
+\begin{equation}
+\label{ineg:q}
+\beta \cdot \left( \frac{\rho _{1}}{\overline{\rho _{0}}}(\overline{\rho _{0}}N(q_{0})-\overline{q_{0}}N(\rho _{0}))-\frac{\overline{\rho _{0}}+N(\rho _{0})(x-1/2)}{\overline{\rho _{0}}}\beta \right) \geq 0,
+\end{equation}
+where \( \beta  \) is defined by \( \beta =(\overline{\rho _{0}}dq_{1}-\overline{q_{0}}d\rho _{1}) \).
+\end{lem}
+The next theorem is devoted to the practical computation of the slopes \( dS_{1},d\rho _{1},dq_{1} \)
+in order to solve inequalities (\ref{inegener1}), (\ref{inegener2}), (\ref{inegentrop})
+and in order to maintain the second order property.
+
+\begin{thm}\label{maintheo}
+With the previous notations, consider:
+\[
+\alpha =\overline{S_{0}}d\rho _{1}-\overline{\rho _{0}}dS_{1},\quad \beta =(\overline{\rho _{0}}dq_{1}-\overline{q_{0}}d\rho _{1}),\]
+\[
+g_{\alpha }(x)=\frac{\overline{S_{0}}+N(S_{0})(x)(x-1/2)}{\overline{S_{0}}},\quad g_{\beta }(x)=\frac{\overline{\rho _{0}}+N(\rho _{0})(x)(x-1/2)}{\overline{\rho _{0}}},\]
+
+\[
+h_{\alpha }(x)=\frac{S_{1}}{\overline{S_{0}}}(\overline{S_{0}}N(\rho _{0})(x)-\overline{\rho _{0}}N(S_{0})(x))\quad \textrm{and}\quad h_{\beta }(x)=\frac{\rho _{1}}{\overline{\rho _{0}}}(\overline{\rho _{0}}N(q_{0})(x)-\overline{q_{0}}N(\rho _{0})(x)).\]
+Then, if \( dS_{1} \) is defined by (\ref{minmodS}) and if \( \alpha  \)
+and \( \beta  \) are defined by
+\[
+\frac{1}{\alpha }=\left\{ \begin{array}{c}
+\max _{x\in [0,1]}\frac{g_{\alpha }(x)}{h_{\alpha }(x)}\textrm{ if }h_{\alpha }>0\\
+\min _{x\in [0,1]}\frac{g_{\alpha }(x)}{h_{\alpha }(x)}\textrm{ if }h_{\alpha }<0\\
+\infty \textrm{ otherwise}
+\end{array}\right. ,\]
+\[
+\frac{1}{\beta }=\left\{ \begin{array}{c}
+\max _{x\in [0,1]}\frac{g_{\beta }(x)}{h_{\beta }(x)}\textrm{ if }h_{\beta }>0\\
+\min _{x\in [0,1]}\frac{g_{\beta }(x)}{h_{\beta }(x)}\textrm{ if }h_{\beta }<0\\
+\infty \textrm{ otherwise}
+\end{array}\right. ,\]
+then, \( \rho _{1} \), \( S_{1} \), \( q_{1} \) are second order approximations
+of respectively \( \rho _{0} \), \( S_{0} \), \( q_{0} \), and inequalities
+(\ref{inegener2}), (\ref{ineg:rho}), (\ref{ineg:q}) are satisfied. In other
+words, with this choice of slopes, \( \Pi  \) is a second order entropy diminishing
+projection.
+\end{thm}
+\begin{proof}
+The case of \( dS_{1} \) has already been treated before. The inequality to
+solve for \( \alpha  \) is
+\[
+\alpha (h_{\alpha }(x)-\alpha g_{\alpha }(x))\geq 0.\]
+\( \alpha =0 \) is a solution, but in order to achieve second order, \( \alpha  \)
+has to be a first order approximation of \( h_{\alpha }(x) \). Thus, we can
+assume that \( \alpha  \) and \( h_{\alpha } \) have the same signs. Then,
+suppose that \( h_{\alpha }(x)>0 \) for all \( x\in [0,1] \). If \( \alpha >0 \),
+we have to solve \( 1/\alpha \geq g_{\alpha }(x)/h_{\alpha }(x), \) \( x\in [0,1] \).
+We thus take \( 1/\alpha =\textrm{max}_{[0,1]}\frac{g_{\alpha }(x)}{h_{\alpha }(x)}>0 \).
+In the same way, if \( h_{\alpha }(x)<0 \) we choose \( 1/\alpha =\textrm{min}_{[0,1]}\frac{g_{\alpha }(x)}{h_{\alpha }(x)}<0 \).
+Finally, if \( h_{\alpha } \) takes positive and negative values on \( [0,1] \),
+we take \( \alpha =0 \). The computation of \( \beta  \) is completely similar.
+\end{proof}
+
+\section{First application: a second order Boltzmann scheme}
+
+
+\subsection{An approximate Riemann solver based on a kinetic interpretation}
+
+In this part, a possible computation of \( w^{n+1,-} \) is
+presented. For practical reasons, we shall not use a classical
+Riemann solver, but instead, a resolution step based on the
+kinetic interpretation of the Euler equations. The kinetic
+interpretation that we will describe below has been proposed by
+Perthame in \cite{perthame90}. His model has the property of being
+entropy diminishing for one particular entropy (see
+\cite{perthame90}) and not necessarily for the other entropies.
+For simplicity, it will be exposed in the case \( \gamma =3 \),
+where the computations are easier, but can be extented to other
+values of \( \gamma  \). Actually, it would be better to use the
+more recent model of Bouchut as described into \cite{bouchut99},
+which is entropy diminishing for all entropies.
+
+Let us describe the original kinetic interpretation of Perthame.
+For this purpose, we introduce the following function (called in
+the sequel generalized Maxwellian).
+\begin{equation}\label{maxwell} M_{w}(v)=\frac{\rho
+}{2\sqrt{6\varepsilon }}Y(\frac{v-u}{\sqrt{6\varepsilon }}),
+\end{equation}
+ where:
+
+\begin{itemize}
+\item \( Y \) is the characteristic function of \( [-1,1] \):
+\[
+Y(t)=\left\{ \begin{array}{c}
+1\textrm{ if }\left| t\right| <1\\
+0\textrm{ if }\left| t\right| \geq 1
+\end{array}\right. .\]
+
+\item \( v \) is the microscopic speed.
+\item \( w=\left( \begin{array}{c}
+\rho \\
+\rho u\\
+E
+\end{array}\right)  \) is the macroscopic state of the gas.
+\end{itemize}
+It is straightforward to check that
+\[
+\int _{v=-\infty }^{v=+\infty }M_{w}(v)\left( \begin{array}{c}
+1\\
+v\\
+v^{2}/2
+\end{array}\right) dv=w.\]
+ Let us now set
+\[
+m(t,x,v)=M_{w(t,x)}(v).\]
+ It is also easy to check that
+\begin{equation}
+\label{eulboltz} \int _{v=-\infty }^{v=+\infty }\partial
+_{t}m+v\partial _{x}m=\partial _{t}w+\partial _{x}f(w).
+\end{equation}
+ This fact leads to a numerical resolution known as a Boltzmann scheme.
+ Many papers have been published on this subject.
+Without pretending to be exhaustive, we can cite for example the
+works of Deshpande \cite{deshpande88}, Bourdel, Mazet, Delorme and
+Croisille \cite{mazet89}. All these works are based on the
+physical Maxwellian. Each time step of a Boltzmann scheme is made
+of two substeps.
+
+\begin{itemize}
+\item Free transport step: \( w^{n}(x) \) being given, the following evolution problem
+is solved during a time step:
+\begin{eqnarray}
+\partial _{t}g+v\partial _{x}g=0,\quad 0\leq t\leq \tau , &  & \nonumber \\
+g(0,x,v)=M_{w^{n}(x)}(v).\label{freeboltz}
+\end{eqnarray}
+
+\item Collision step: from the solution at time \( t=\tau  \), a new macroscopic
+state is recovered
+\[
+w^{n+1,-}(x)=\int _{v=-\infty }^{v=+\infty }g(\tau ,x,v)K(v)dv.\]
+ where
+\[
+K(v)=\left( \begin{array}{c}
+1\\
+v\\
+v^{2}/2
+\end{array}\right) \]
+
+\end{itemize}
+It is important here to point out that the Boltzmann solver is only an approximate
+Riemann solver. This is due to the fact that during the free transport procedure
+(\ref{freeboltz}) the equality
+\[
+m(t,x,v)=g(t,x,v)\]
+ does not hold (the microscopic state is not a generalized Maxwellian). The collision step
+acts as a relaxation of the microscopic state to a Maxwellian state. Of course
+this solver tends to an exact solver when \( \tau \rightarrow 0 \).
+
+On the other hand, despite its simplicity, this approach leads to very tedious
+computations for \( w^{n+1,-} \). Therefore, we propose the following simplification:
+in the free transport step (\ref{freeboltz}), we replace the initial condition
+by its linear interpolation on each cell
+\[
+f(0,x,v)=\frac{x-x_{i-1/2}}{h}M_{w_{i,r}}(v)+\frac{x_{i+1/2}-x}{h}M_{w_{i,l}}(v)\textrm{ for }x\in C_{i}\quad ,\]
+ where
+\[
+w_{i,r}=w_{i}^{n}+\frac{h}{2}s_{i}^{n}\textrm{ and
+}w_{i,l}=w_{i}^{n}-\frac{h}{2}s_{i}^{n}\quad .\] It must be
+noticed that this approximation is conservative but unfortunately,
+it is also necessarily entropy increasing because we replace a
+Maxwellian state (which corresponds to a minimum of entropy) at
+each point of the cell by a linear approximation.
+
+
+\subsection{Computation of the approximate second-order Riemann solver}
+
+Let \( x\in C_{i} \), we have:
+\[
+w^{n+1,-}(x)=\int _{v=-\infty }^{+\infty }f(0,x-v\tau ,v)K(v)dv.\]
+ Consider then the speed \( v_{\min } \) (respectively \( v_{\max } \)) at
+which a particle in \( x_{i+1/2} \) (respectively \( x_{i-1/2}) \) at time
+\( t=0 \) reaches \( x \) at time \( t=\tau  \)
+\begin{eqnarray*}
+v_{\min } & = & \frac{x-x_{i+1/2}}{\tau }<0,\\
+v_{\max } & = & \frac{x-x_{i-1/2}}{\tau }>0.
+\end{eqnarray*}
+ The time step \( \tau  \) is supposed to be smaller than \( hv^{*}, \) where
+\( v^{*} \) is greater than the biggest support of all the
+generalized Maxwellians plus the maximal speed of the flow. Thanks
+to this CFL condition, the computation of \( w^{n+1,-}(x) \) can
+then be split into three parts: a contribution from the left cell
+\( C_{i-1} \), the right cell \( C_{i+1} \), and the middle cell
+\( C_{i} \):
+\[
+w^{n+1,-}(x)=A_{l}+A_{m}+A_{r}\]
+\begin{eqnarray*}
+A_{l} & = & \int _{v=v_{\max }}^{+\infty }\left[ \frac{x-v\tau -x_{i-3/2}}{h}M_{w_{i-1,r}}(v)+\frac{x_{i-1/2}-x+v\tau }{h}M_{w_{i-1,l}}(v)\right] K(v)dv,\\
+A_{r} & = & \int _{v=-\infty }^{v_{\min }}\left[ \frac{x-v\tau -x_{i+1/2}}{h}M_{w_{i+1,r}}(v)+\frac{x_{i+3/2}-x+v\tau }{h}M_{w_{i+1,l}}(v)\right] K(v)dv,\\
+A_{m} & = & \int _{v=v_{\min }}^{v_{\max }}\left[ \frac{x-v\tau -x_{i-1/2}}{h}M_{w_{i,r}}(v)+\frac{x_{i+1/2}-x+v\tau }{h}M_{w_{i,l}}(v)\right] K(v)dv.
+\end{eqnarray*}
+ A more detailed expression of \( A_{l},A_{r},A_{m} \) is given in Appendix 1.
+It can be checked that \( w^{n+1,-} \) is piecewise polynomial of degree \( \leq 4 \)
+on each cell. The number of pieces is \( \leq 22. \)
+
+
+\subsection{Numerical results}
+
+For the numerical results that are presented in this section, we
+decided to compute exactly \( w^{n+1,-} \) given by the kinetic
+Riemann solver. This is done thanks to a C++ class of piecewise
+polynomial functions. It appears then that \( S^{n+1,-} \) is not,
+in general, piecewise polynomial. We thus had to construct a
+piecewise polynomial approximation \( \tilde{S} \) of \( S^{n+1,-}
+\). This is done with a Tchebychev interpolation with 3 points on
+each piece of regularity of \( w^{n+1,-} \). Then \( N(\rho ) \),
+\( N(q) \), and \( N(\tilde{S}) \) can be computed exactly. The
+final limitation procedure has been performed numerically with a
+sampling of the functions we wanted to maximize or minimize on
+each cell.
+
+We were able to verify that our projection operator acts at least
+as a classical minmod limiter. Indeed, the numerical results
+appear to be precise and present no oscillation on a 200 cells
+mesh.
+
+We tested the scheme on the classical case of a shock tube problem
+with the following initial data:
+\begin{center}
+\begin{tabular}{|c|c|c|}
+\hline Variable & Left state & Right state \\
+\hline  Density & $\rho_L=2$ & $\rho_R=1$\\
+\hline  Velocity & $u_L=0$ & $u_R=0$\\
+\hline Pressure & $p_L=8$ & $p_R=2$\\
+\hline
+\end{tabular}
+\end{center}
+
+ In the Figures \ref{figrho}, \ref{figvit} and \ref{figpres} a comparison
+is made between the first and the second order schemes with \( 100
+\) or \( 200 \) cells. The results are given at time \( t=1 \). In
+the case of the first order solution, the real (piecewise
+constant) mathematical solution has been plotted. Density,
+velocity and pressure are successively presented.
+\begin{figure}[b]
+\resizebox*{15cm}{!}{\rotatebox{0}{\includegraphics{rho100.eps}}}
+\resizebox*{15cm}{!}{\rotatebox{0}{\includegraphics{rho200.eps}}}
+
+
+\caption{Density. First or second order. 100 or 200 cells.\label{figrho}}
+\end{figure}
+
+\begin{figure}[b]
+\resizebox*{15cm}{!}{\rotatebox{0}{\includegraphics{vit100.eps}}}
+\resizebox*{15cm}{!}{\rotatebox{0}{\includegraphics{vit200.eps}}}
+
+
+\caption{Velocity. First or Second order. 100 or 200
+cells.\label{figvit}}
+\end{figure}
+
+\begin{figure}[b]
+\resizebox*{15cm}{!}{\rotatebox{0}{\includegraphics{pres100.eps}}}
+\resizebox*{15cm}{!}{\rotatebox{0}{\includegraphics{pres200.eps}}}
+
+
+\caption{Pressure. First or second order. 100 or 200 cells.\label{figpres}}
+\end{figure}
+
+With a mesh refinement, oscillations start to appear. The
+phenomenon can be observed with a classical MUSCL scheme. This is
+due to the fact that the scheme is only first order in time.
+
+The complexity of the scheme leaded us to abandon this approach.
+The next section is thus devoted to a more tractable application
+of the entropic projection.
+
+\section{Second application: Mean value approach}
+
+In this part, we envisage a simpler approach than the kinetic
+approach. We first build a polynomial interpolation of the
+solution, starting from cell averages, as in Harten's ENO schemes
+\cite{harten89}. We use an interpolation without upwinding or
+limitation in order to evaluate the effect of the entropic
+projection.
+
+More precisely, suppose that we know the mean value $w_i^n$ of the
+solution  at time $n$ in the cell $C_i$. A second order extension
+of the Godunov scheme reads
+\begin{equation}\label{godu2}
+w_i^{n + 1}  = w_i^n  - \frac{\tau } {h}(f_{i + 1/2}^{n + 1/2}  -
+f_{i - 1/2}^{n + 1/2} ).
+\end{equation}
+The flux at interface $i+1/2$ and time ${n+1/2}$ is of the
+form\begin{equation}\label{flux2} f_{i + 1/2}^{n + 1/2}  =
+f(R(w_{i + 1/2, - }^{n + 1/2} ,w_{i + 1/2, + }^{n + 1/2} )).
+\end{equation}
+The quantity $R(w_L,w_R)$ denotes the solution of the first order
+exact Riemann problem at the interface between $w_L$ and $w_R$.
+The quantity $w_{i + 1/2, - }$ is the value of the reconstructed
+solution in the cell $i$ at time $n+1/2$ and at the interface
+$i+1/2$. The choice $w_{i + 1/2, - }=w_i^n$ corresponds to the
+classical first order scheme. We focus now on the cell $i$. For
+simplicity, we suppose that $C_i=]0,1[$.
+
+The first step is to construct a high order approximation of $w$
+from the cell averages. We thus suppose, with the notations of
+Section \ref{expl}, that $\rho_0$, $q_0$ and $S_0$ are second
+order polynomials in $]0,1[$. We also suppose that the
+reconstruction is conservative \begin{equation} \int_j^{j + 1}
+{w_0 (x)dx} = w_{i + j}^n ,\quad j =  - 1,0,1,
+\end{equation}
+with
+\begin{equation}
+w_0 (x) = (\rho _0 (x),q_0 (x),\frac{{q_0^2 (x)}} {{2\rho _0 (x)}}
++ S_0 (x)^\gamma  )^T .
+\end{equation}
+It is known that the resulting interpolation is not necessarily
+positive for the density and the pressure, even if all the mean
+values are positive. So we propose in Appendix 2 a simple
+procedure to correct the interpolation, if necessary.
+
+Because $\rho_0$, $q_0$ and $S_0$ are now second order
+polynomials, the computations described in Theorem
+\ref{theorem:perth} become almost explicit. It is then possible to
+compute the limited variables $\rho_1$, $q_1$ and $S_1$, the
+energy correction described in (\ref{correcE}) and then the fluxes
+at cell interfaces. The second order in time is achieved with the
+Hancock method. It uses the space slope estimate to compute a time
+derivative estimate thanks to the conservation laws:
+$w_t=-f(w)_x$. The time derivative estimate permits then to
+compute the approximation of $w$ at time $n+1/2$.
+
+We have tested the scheme on the Riemann problem whose data are
+given in tables \ref{table1} and \ref{table2}. This case is chosen
+in the book of Toro \cite{toro94}. It presents a sonic rarefaction
+wave and a shock. We compare in Figures \ref{figrho2},
+\ref{figvit2} and \ref{figpres2} the results of the
+reconstruction-limitation scheme with a standard MUSCL-Hancock
+scheme (described in \cite{toro94}). We observe a slight
+improvement of the precision in the contact discontinuity, but
+also small overshoots and undershoots in the right shock. Without
+the correction described in Appendix 2 the computation would have
+not ended. It is necessary only on one cell in the first time step
+and only for the reconstruction of the density $\rho$ near the
+contact discontinuity.
+\begin{table}[h]
+\begin{center}
+\begin{tabular}{|c|c|c|}
+\hline Variable & Left state & Right state \\
+\hline  Density & $\rho_L=1$ & $\rho_R=0.125$\\
+\hline  Velocity & $u_L=0.75$ & $u_R=0$\\
+\hline Pressure & $p_L=1$ & $p_R=0.1$\\
+\hline
+\end{tabular}
+\caption{\label{table1}\textit{Data of the Riemann problem.}}
+\end{center}
+\end{table}
+\begin{table}[h]
+\begin{center}
+\begin{tabular}{|c|c|}
+\hline Interval & $]-1/2,1/2[$  \\
+\hline  Number of cells & 200 \\
+\hline  CFL & $0.8$ \\
+\hline Final time & $t=0.2$ \\
+\hline $\gamma$ & $1.4$ \\
+\hline
+\end{tabular}
+\caption{\label{table2}\textit{Computation characteristics.}}
+\end{center}
+\end{table}
+
+\begin{figure}[b]
+\resizebox*{15cm}{!}{\rotatebox{0}{\includegraphics{comprho.eps}}}
+\caption{Comparison entropic scheme-MUSCL Hancock
+scheme.\label{figrho2}}
+\end{figure}
+\begin{figure}[b]
+\resizebox*{15cm}{!}{\rotatebox{0}{\includegraphics{compv.eps}}}
+\caption{Comparison entropic scheme-MUSCL Hancock
+scheme.\label{figvit2}}
+\end{figure}
+\begin{figure}[b]
+\resizebox*{15cm}{!}{\rotatebox{0}{\includegraphics{comppr.eps}}}
+\caption{Comparison entropic scheme-MUSCL Hancock
+scheme.\label{figpres2}}
+\end{figure}
+
+
+In the next numerical experiment, we evaluate the rate of
+convergence in the $L^1$ norm (for density $\rho$) of the
+reconstruction-limitation scheme and compared it in
+ Figure
+\ref{rate} and Table \ref{ratet} with the standard MUSCL-Hancock
+scheme. The rate is computed for a simple contact discontinuity
+whose values are given in Table \ref{discon}. The characteristics
+of this computation are summed up in Table \ref{resum}. We observe
+that the projection scheme is more precise than the MUSCL scheme,
+but the asymptotic rates of convergence seems to be approximately
+the same. Recall that, for a simple contact discontinuity, the
+standard MUSCL "second order" scheme has a convergence rate of
+$2/3 \simeq 0.66666$.
+
+\begin{figure}[b]
+\resizebox*{15cm}{!}{\rotatebox{0}{\includegraphics{errvf.eps}}}
+\caption{Comparison entropic scheme-MUSCL Hancock scheme. Rate of
+convergence for a contact discontinuity.\label{rate}}
+\end{figure}
+
+\begin{table}[h]
+\begin{center}
+\begin{tabular}{|c|c|c|c|c|}
+\hline $\ln(h)$ & $\ln($error$)$ MUSCL& $\ln($error$)$ proj. & rate MUSCL & rate proj.\\
+
+\hline
+
+
+
+-4.60517 &-4.10716 &-4.36288 & -&- \\ \hline
+
+-5.29832 &-4.55118 &-4.84035 & 0.64058&0.68884 \\ \hline
+
+-5.99146 &-4.99951 &-5.31210 & 0.64681&0.68060 \\ \hline
+
+-6.68461 &-5.45112 &-5.77950 & 0.65153&0.67431 \\ \hline
+
+-7.37776 &-5.90507 &-6.24700 & 0.65491&0.67446 \\ \hline
+\end{tabular}
+\caption{\label{ratet}\textit{Convergence test, contact
+discontinuity.}}
+\end{center}
+\end{table}
+
+
+\begin{table}[h]
+\begin{center}
+\begin{tabular}{|c|c|c|}
+\hline Variable & Left state & Right state \\
+\hline  Density & $\rho_L=2$ & $\rho_R=1$\\
+\hline  Velocity & $u_L=1$ & $u_R=1$\\
+\hline Pressure & $p_L=1$ & $p_R=1$\\
+\hline
+\end{tabular}
+\caption{\label{discon}\textit{Contact discontinuity.}}
+\end{center}
+\end{table}
+
+\begin{table}[h]
+\begin{center}
+\begin{tabular}{|c|c|}
+\hline Interval & $]-1/2,1/2[$  \\
+\hline  Number of cells & 200 to 1600 \\
+\hline  CFL & $\simeq 0.45$ \\
+\hline Final time & $t=0.2$ \\
+\hline $\gamma$ & $1.4$ \\
+\hline
+\end{tabular}
+\caption{\label{resum}\textit{Computation characteristics,
+contact.}}
+\end{center}
+\end{table}
+
+In the last numerical experiment, we evaluate the rate of
+convergence in the $L^1$ norm (for density $\rho$) of the
+reconstruction-limitation scheme and compared it in
+ Figure
+\ref{rate2} and Table \ref{ratet2} with the standard MUSCL-Hancock
+scheme. The rate is computed for a simple shock whose values are
+given in Table \ref{discon2}. The characteristics of this
+computation are summed up in Table \ref{resum2}. We observe that
+the projection scheme is more precise than the MUSCL scheme, but
+the asymptotic rates of convergence seem to be approximately the
+same. Recall that, for a simple shock, the standard MUSCL "second
+order" scheme has a convergence rate of $1$.
+
+\begin{figure}[b]
+\resizebox*{15cm}{!}{\rotatebox{0}{\includegraphics{errvf2.eps}}}
+\caption{Comparison entropic scheme-MUSCL Hancock scheme. Rate of
+convergence for a shock.\label{rate2}}
+\end{figure}
+
+\begin{table}[h]
+\begin{center}
+\begin{tabular}{|c|c|c|c|c|}
+\hline $\ln(h)$ & $\ln($error$)$ MUSCL& $\ln($error$)$ proj. & rate MUSCL & rate proj.\\
+
+\hline
+
+
+
+
+
+
+
+-4.60517 &-6.12021 &-6.45422 & -&- \\ \hline
+
+-5.29832 &-6.79584 & -7.14075 & 0.97472&0.99045 \\ \hline
+
+-5.99146 & -7.48411& -7.83202  &  0.99297 &0.99730 \\ \hline
+
+-6.68461 & -8.17001 & -8.52117 & 0.98954&0.99423\\ \hline
+
+-7.37776 &-8.84886 & -9.20612 &  0.97937&0.98817\\ \hline
+\end{tabular}
+\caption{\label{ratet2}\textit{Convergence test, shock.}}
+\end{center}
+\end{table}
+
+
+\begin{table}[h]
+\begin{center}
+\begin{tabular}{|c|c|c|}
+\hline Variable & Left state & Right state \\
+\hline  Density & $\rho_L=1$ & $\rho_R=3/4$\\
+\hline  Velocity & $u_L=0$ & $u_R=-1/3$\\
+\hline Pressure & $p_L=1$ & $p_R=2/3$\\
+\hline
+\end{tabular}
+\caption{\label{discon2}\textit{Shock wave of velocity 1.}}
+\end{center}
+\end{table}
+
+\begin{table}[h]
+\begin{center}
+\begin{tabular}{|c|c|}
+\hline Interval & $]-1/2,1/2[$  \\
+\hline  Number of cells & 200 to 1600 \\
+\hline  CFL & $\simeq 0.58$ \\
+\hline Final time & $t=0.2$ \\
+\hline $\gamma$ & $1.4$ \\
+\hline
+\end{tabular}
+\caption{\label{resum2}\textit{Computation characteristics,
+shock.}}
+\end{center}
+\end{table}
+
+The program we used for the numerical results of this section can
+be downloaded at
+\begin{quote}
+\url{http://helluy/entropy/index.html}
+\end{quote}
+
+\section{Conclusion}
+
+In this paper, we have proposed a second order generalization of
+the Godunov scheme for the Euler equations. In the first part, we
+have built a second order entropic projection with explicit
+formulas. In the second part, we have numerically tested the
+projection. Because it is difficult to construct an exact second
+order Riemann solver, we had to simplify the theoretical approach.
+We proposed two applications: the slope limitation applied to an
+approximate kinetic Riemann solver and the slope limitation
+applied to a polynomial reconstruction with cell averages.
+
+Our approach is rigorous and gives a clear justification to the
+slope limitation procedure.
+
+Many questions still remain. For example:
+\begin{enumerate}
+  \item \label{dim} Is it possible to extend the scheme to higher dimensions?
+  \item \label{fast} Can we improve the efficiency of the computation?
+  \item \label{neos} Is it possible to extend the method to more
+  general Equation Of State (EOS) than the perfect gas EOS ?
+\end{enumerate}
+
+The answer to the first question is yes. It can be done with at
+least two methods. The first method, which is the simplest could
+be to use an alternate direction method. Then the scheme is
+limited to cartesian grids. Another way would be to extend Theorem
+\ref{theorem:perth} to triangles or quadrilaterals. We do not know
+if the computation of the practical projection remains possible.
+
+The answer to the second question is certainly yes. But we do not
+know if it is possible to find a simpler computation without
+abandoning an exact entropy decrease. By relaxing the exact
+entropy decrease or approximating the formula of Theorem
+\ref{maintheo}, some schemes have already been designed for the
+Lagrangian equations in \cite{coquel_lefloch95}.
+
+The answer to the third question is: maybe yes. The main
+ingredient in the presented construction is the existence of an
+entropy whose hessian is degenerated. For a given pressure EOS
+\begin{equation}\label{eosg}
+    p=p(\tau=1/\rho,\varepsilon),
+\end{equation}
+the Lax entropies of the associated Euler equations are
+constructed, as described in \cite{harten98}, from the concave
+solutions $s(\tau,\varepsilon)$ of
+\begin{equation}\label{eqentr}
+\frac{{\partial s}} {{\partial \tau }} - p\frac{{\partial s}}
+{{\partial \varepsilon }} = 0.
+\end{equation}
+The Lax entropies are then $U=-\rho s$. The general concave
+solutions of (\ref{eqentr}) are of the form $s=A(s_0)$ where $A$
+is a function with monotony and convexity properties, and $s_0$ a
+particular solution. If the hessian of $s_0$ is degenerated, maybe
+that the previous construction can be generalized.
+
+We would like to end this presentation by insisting on the fact
+that the second order entropic projection can be used as a slope
+limiter for other numerical methods. The Galerkin discontinous
+method (see \cite{lesaint74}, \cite{cockburn89},
+\cite{feistauer02}...) could be a candidate for such a limiter.
+Indeed in this method a piecewise polynomial approximation at each
+time step has to be limited in order to avoid spurious
+oscillations.
+
+\section*{Appendix 1: computations for the Boltzmann scheme}
+
+We start with \( A_{m}: \)
+\begin{eqnarray*}
+A_{m} & = & \frac{x-x_{i-1/2}}{h}\int _{v=v_{\min }}^{v_{\max }}M_{w_{i,r}}(v)K(v)dv\\
+ &  & -\frac{\tau }{h}\int _{v=v_{\min }}^{v_{\max }}M_{w_{i,r}}(v)vK(v)dv\\
+ &  & +\frac{x_{i+1/2}-x}{h}\int _{v=v_{\min }}^{v_{\max }}M_{w_{i,l}}(v)K(v)dv\\
+ &  & +\frac{\tau }{h}\int _{v=v_{\min }}^{v_{\max }}M_{w_{i,l}}(v)vK(v)dv
+\end{eqnarray*}
+\begin{eqnarray*}
+A_{m} & = & \frac{x-x_{i-1/2}}{h}\frac{\rho _{i,r}}{2\sqrt{6\varepsilon _{i,r}}}\left[ \begin{array}{c}
+v\\
+v^{2}/2\\
+v^{3}/6
+\end{array}\right] _{\max (v_{\min },u_{i,r}-\sqrt{6\varepsilon _{i,r}})}^{\min (v_{\max },u_{i,r}+\sqrt{6\varepsilon _{i,r}})}\\
+ &  & -\frac{\tau }{h}\frac{\rho _{i,r}}{2\sqrt{6\varepsilon _{i,r}}}\left[ \begin{array}{c}
+v^{2}/2\\
+v^{3}/3\\
+v^{4}/8
+\end{array}\right] _{\max (v_{\min },u_{i,r}-\sqrt{6\varepsilon _{i,r}})}^{\min (v_{\max },u_{i,r}+\sqrt{6\varepsilon _{i,r}})}\\
+ &  & +\frac{x_{i+1/2}-x}{h}\frac{\rho _{i,l}}{2\sqrt{6\varepsilon _{i,l}}}\left[ \begin{array}{c}
+v\\
+v^{2}/2\\
+v^{3}/6
+\end{array}\right] _{\max (v_{\min },u_{i,l}-\sqrt{6\varepsilon _{i,l}})}^{\min (v_{\max },u_{i,l}+\sqrt{6\varepsilon _{i,l}})}\\
+ &  & +\frac{\tau }{h}\frac{\rho _{i,l}}{2\sqrt{6\varepsilon _{i,l}}}\left[ \begin{array}{c}
+v^{2}/2\\
+v^{3}/3\\
+v^{4}/8
+\end{array}\right] _{\max (v_{\min },u_{i,l}-\sqrt{6\varepsilon _{i,l}})}^{\min (v_{\max },u_{i,l}+\sqrt{6\varepsilon _{i,l}})}
+\end{eqnarray*}
+ In the same way:
+\begin{eqnarray*}
+A_{l} & = & \frac{x-x_{i-3/2}}{h}\frac{\rho _{i-1,r}}{2\sqrt{6\varepsilon _{i-1,r}}}\left[ \begin{array}{c}
+v\\
+v^{2}/2\\
+v^{3}/6
+\end{array}\right] _{\max (v_{\max },u_{i-1,r}-\sqrt{6\varepsilon _{i-1,r}})}^{u_{i-1,r}+\sqrt{6\varepsilon _{i-1,r}}}\\
+ &  & -\frac{\tau }{h}\frac{\rho _{i-1,r}}{2\sqrt{6\varepsilon _{i-1,r}}}\left[ \begin{array}{c}
+v^{2}/2\\
+v^{3}/3\\
+v^{4}/8
+\end{array}\right] _{\max (v_{\max },u_{i-1,r}-\sqrt{6\varepsilon _{i-1,r}})}^{u_{i-1,r}+\sqrt{6\varepsilon _{i-1,r}}}\\
+ &  & +\frac{x_{i-1/2}-x}{h}\frac{\rho _{i-1,l}}{2\sqrt{6\varepsilon _{i-1,l}}}\left[ \begin{array}{c}
+v\\
+v^{2}/2\\
+v^{3}/6
+\end{array}\right] _{\max (v_{\max },u_{i-1,l}-\sqrt{6\varepsilon _{i-1,l}})}^{u_{i-1,l}+\sqrt{6\varepsilon _{i-1,l}}}\\
+ &  & +\frac{\tau }{h}\frac{\rho _{i-1,l}}{2\sqrt{6\varepsilon _{i-1,l}}}\left[ \begin{array}{c}
+v^{2}/2\\
+v^{3}/3\\
+v^{4}/8
+\end{array}\right] _{\max (v_{\max },u_{i-1,l}-\sqrt{6\varepsilon _{i-1,l}})}^{u_{i-1,l}+\sqrt{6\varepsilon _{i-1,l}}}
+\end{eqnarray*}
+ and
+\begin{eqnarray*}
+A_{r} & = & \frac{x-x_{i+1/2}}{h}\frac{\rho _{i+1,r}}{2\sqrt{6\varepsilon _{i+1,r}}}\left[ \begin{array}{c}
+v\\
+v^{2}/2\\
+v^{3}/6
+\end{array}\right] _{u_{i+1,r}-\sqrt{6\varepsilon _{i+1,r}}}^{\min (v_{\min },u_{i+1,r}+\sqrt{6\varepsilon _{i+1,r}})}\\
+ &  & -\frac{\tau }{h}\frac{\rho _{i+1,r}}{2\sqrt{6\varepsilon _{i+1,r}}}\left[ \begin{array}{c}
+v^{2}/2\\
+v^{3}/3\\
+v^{4}/8
+\end{array}\right] _{u_{i+1,r}-\sqrt{6\varepsilon _{i+1,r}}}^{\min (v_{\min },u_{i+1,r}+\sqrt{6\varepsilon _{i+1,r}})}\\
+ &  & +\frac{x_{i+3/2}-x}{h}\frac{\rho _{i+1,l}}{2\sqrt{6\varepsilon _{i+1,l}}}\left[ \begin{array}{c}
+v\\
+v^{2}/2\\
+v^{3}/6
+\end{array}\right] _{u_{i+1,l}-\sqrt{6\varepsilon _{i+1,l}}}^{\min (v_{\min },u_{i+1,l}+\sqrt{6\varepsilon _{i+1,l}})}\\
+ &  & +\frac{\tau }{h}\frac{\rho _{i+1,l}}{2\sqrt{6\varepsilon _{i+1,l}}}\left[ \begin{array}{c}
+v^{2}/2\\
+v^{3}/3\\
+v^{4}/8
+\end{array}\right] _{u_{i+1,l}-\sqrt{6\varepsilon _{i+1,l}}}^{\min (v_{\min },u_{i+1,l}+\sqrt{6\varepsilon _{i+1,l}})}
+\end{eqnarray*}
+ It is easy to check that \( w^{n+1,-} \) is piecewise polynomial and continuous
+on each cell. For instance, the practical computation of a term like
+\[
+A=\left[ \begin{array}{c}
+v\\
+v^{2}/2\\
+v^{3}/6
+\end{array}\right] _{\max (v_{\min },v)}^{\min (v_{\max },V)}\]
+ where \( v<V, \) gives
+\begin{eqnarray*}
+A & = & \left[ \begin{array}{c}
+V-v\\
+V^{2}/2-v^{2}/2\\
+V^{3}/6-v^{3}/6
+\end{array}\right] \textrm{ if }v_{\min }<v\textrm{ and }v_{\max }>V,\textrm{ i}.\textrm{e}.\textrm{ }x\in \left] V\tau +x_{i-1/2},v\tau +x_{i+1/2}\right[ \\
+A & = & \left[ \begin{array}{c}
+V-v_{\min }\\
+V^{2}/2-v_{\min }^{2}/2\\
+V^{3}/6-v_{\min }^{3}/6
+\end{array}\right] \textrm{ if }v_{\min }>v\textrm{ and }v_{\max }>V,\textrm{ i}.\textrm{e}.\textrm{ }x\in \left] v\tau +x_{i+1/2},V\tau +x_{i+1/2}\right[ \\
+A & = & \left[ \begin{array}{c}
+v_{\max }-v\\
+v_{\max }^{2}/2-v^{2}/2\\
+v_{\max }^{3}/6-v^{3}/6
+\end{array}\right] \textrm{ if }v_{\min }<v\textrm{ and }v_{\max }<V,\textrm{ i}.\textrm{e}.\textrm{ }x\in \left] v\tau +x_{i-1/2},V\tau +x_{i-1/2}\right[ \\
+A & = & 0\textrm{ if }x>V\tau +x_{i+1/2}\textrm{ or }x<v\tau +x_{i-1/2}
+\end{eqnarray*}
+
+
+\textbf{Remark}: by the CFL condition the inequality \( V\tau +x_{i-1/2}<v\tau +x_{i+1/2} \)
+necessarily holds.\bibliographystyle{plain}
+\section*{Appendix 2: positive mean value interpolation}
+This appendix is devoted to an algorithm in order to avoid
+negative values in the interpolation process. In all the numerical
+tests that we presented it was necessary to activate this
+correction only on a few cells. This method can be interesting for
+other purposes.
+
+For this, we consider a scalar non-negative function $f$ defined
+on the interval $[-1,2]$. We know the mean values of $f$ on the
+sub-intervals $I_i=[i-1,i]$, $i=0,1,2$
+\begin{equation}\label{subcell}
+    f_i=
+\int_{i - 1}^i {f(t)dt \ge 0.}
+\end{equation}
+A classical interpolation would be to find a second order
+polynomial $P$ satisfying
+\begin{equation}\label{meanpoly}
+    f_i=
+\int_{i - 1}^i {P(t)dt,}
+\end{equation}
+but it is known that this interpolation can be negative in some
+point in the interval $[0,1]$, even if the three mean values $f_i$
+are positive. Instead, we will consider a constrained optimization
+problem. We consider a base $(P_i)$ of the second order
+polynomials satisfying $ \int_{I_i } {P_j }  = \delta _{ij}$ where
+$\delta _{ij}$ is the Kronecker symbol.
+\begin{equation}\label{base}
+\begin{gathered}
+  P_1 (x) =  - x^2  + x + \frac{5}
+{6}, \hfill \\
+  P_0 (x) = \frac{{x^2 }}
+{2} - x + \frac{1}
+{3}, \hfill \\
+  P_2 (x) = \frac{{x^2 }}
+{2} - \frac{1}
+{6}. \hfill \\
+\end{gathered}
+\end{equation}
+The polynomial $P$ is searched under the form
+\begin{equation}\label{poly}
+P = g_0 P_0  + g_1 P_1  + g_2 P_2 .
+\end{equation}
+In this way, the mean values of $P$ on $[i-1,i]$ are $g_i$ for
+$i=0,1,2$. The conservation property imposes
+\begin{equation}\label{consf}
+    g_1=f_1.
+\end{equation}
+We then consider the functional $ J(P) = \frac{1} {2}\left( {(g_0
+- f_0 )^2  + (g_2  - f_2 )^2 } \right)$. We solve the optimization
+problem: find $P\geq 0$ such that $g_1=f_1$ and $J(P)$ is minimal.
+Note that if the interpolation polynomial defined in
+(\ref{meanpoly}) is non-negative then it solves the minimization
+problem and then $J(P)=0$.
+
+Consider the Lagrangian $L(P,\mu)=J(P)-<\mu,P>$, where $\mu$ is in
+the set $M^{1,+}$ of positive bounded measures on $[0,1]$. The
+optimization problem is equivalent to
+\begin{equation}\label{infsup}
+\mathop {\inf } \limits_{\begin{subarray}{l}
+  g_0 ,g_1 ,g_2  \\
+  g_1  = f_1
+\end{subarray}}  \mathop {\sup }\limits_{\mu  \in M^{1, + } } L(P,\mu ).
+\end{equation}
+The optimality condition classically reads\[
+\begin{gathered}
+  g_0  = f_0  +  < \mu ,P > , \hfill \\
+  g_2  = f_2  +  < \mu ,P > , \hfill \\
+  \forall x \in \left[ {0,1} \right],\quad \mu (x)P(x) = 0. \hfill \\
+\end{gathered}
+\]
+But a second order polynomial has at most two roots. This means
+that $\mu$ is a linear combination of at most two Dirac masses.
+Due to the fact that $P$ has to be non-negative, we can then
+distinguish the following cases:
+\begin{enumerate}
+    \item $P$ is positive, then $g_0=f_0$, $f_1=g_1$ and
+    $g_2=f_2$.
+    \item $P$ is positive in $]0,1]$ and $P(0)=0$ then
+    $f_0=g_0+\mu_0 P_0(0)$, $f_1=g_1$ and $f_2=g_2$.
+    \item $P$ is positive in $[0,1[$ and $P(1)=0$ then
+    $f_2=g_2+\mu_2 P_2(1)$, $f_1=g_1$ and $f_0=g_0$.
+    \item $P$ is positive in $]0,1[$ and $P(0)=P(1)=0$ then
+    $f_0=g_0+\mu_0 P_0(0)$, $f_2=g_2+\mu_2 P_2(1)$ and $f_1=g_1$.
+    \item $P$ is positive in $[0,1]-x_0$, with $x_0 \in ]0,1[$.
+    Then, $f_0=g_0+\mu_0 P_0(x_0)$, $f_2=g_2+\mu_0 P_2(x_0)$,
+    $f_1=g_1$,
+    $P(x_0)=0$, $P'(x_0)=0$.
+\end{enumerate}
+Due to the positivity of $P$, case (4) never happens. The
+algorithm to compute $P$ is then the following.
+
+First, we have necessarily $f_1=g_1$. Then the following cases are
+considered:
+\begin{enumerate}
+    \item If $g_1 \geq 1/2(g_0+g_2))$ take $f_0=g_0$, $f_1=g_1$, $f_2=g_2$. The
+    resulting polynomial is concave and >0;
+    \item if $g_1 \leq 1/2(g_0+g_2))$, try $f_0=g_0$, $f_1=g_1$,
+    $f_2=g_2$. The resulting polynomial is convex. It is solution
+    if $P(0)\geq 0$, $P'(0)\geq 0$ or $P(1)\geq 0$, $P'(1)\leq 0$.
+    \item if $g_1 < 1/2(g_0+g_2))$ and $7/2g_1-1/2g_2\geq 0$ and
+    $\mu_0=3/2g_2-15/2g_1-3g_0 \geq0$ then the solution is given
+    by $f_0=g_0+\mu_0/3$, $f_2=g_2$;
+    \item if $g_1 < 1/2(g_0+g_2))$ and $7/2g_1-1/2g_0\geq 0$ and
+    $\mu_2=3/2g_0-15/2g_1-3g_2 \geq0$ then the solution is given
+    by $f_0=g_0$, $f_2=g_2+\mu_2/3$;
+    \item Finally, if $g_1 < 1/2(g_0+g_2))$ in all the other
+    cases, solve $f_0=g_0+\mu_0 P_0(x_0)$, $f_2=g_2+\mu_0 P_2(x_0)$,
+    $f_1=g_1$,
+    $P(x_0)=0$, $P'(x_0)=0$ for $x_0$ and $\mu_0$.
+\end{enumerate}
+The algorithm, written in Maple and C++ languages, can be
+downloaded and tested at
+\begin{quote}\url{http://helluy/entropy/index.html}\end{quote}.
+\bibliography{entropy}
+
+\end{document}

@@ -1,0 +1,1028 @@
+\begin{document}
+\section{Introduction to the Discrete Wavelet Transform} \label{sec:dwt_intro}
+
+%% Refer to the main books/papers that provide overviews of wavelets
+%% Explain the general principles of discrete wavelet transform
+%% (very) Briefly explain different properties and refer to the appendix for more details
+%% MRA deserves a special mention, as it is will be used in the next section\paragraph{Multiresolution Analysis}
+
+%TODO review the following 3 paragraphs
+
+The Discrete Wavelet Transform (DWT) stands out as a powerful tool for signal processing and analysis.
+This technique breaks down a signal into coefficients, allowing to reveal its unique aspects across different scales and positions.
+These coefficients capture in-depth time and frequency details, providing a comprehensive representation of the signal.
+
+The DWT forms the backbone of our approach to data compression.
+It enables the effective analysis and modification of multi-dimensional data, offering a flexible framework for achieving high compression ratios.
+The evolution of wavelet compression traces back to the works of Haar and Gabor, transitioning from concepts of continuous wavelets to the DWT.
+Grossmann and Morlet introduced the term "wavelet" in the 1980s \cite{grossmann1984decomposition}, marking the beginning of a significant shift in how signals could be processed.
+Subsequent contributions by Daubechies, such as \cite{daubechies1988orthonormal} and \cite{daubechies1992ten}, have solidified wavelet theory, culminating in its application in standards like JPEG2000 for image compression \cite{skodras2001jpeg}.
+The comprehensive book by Mallat \cite{STEPHANE2009263} offers an extensive review of wavelet research, providing insights into the theoretical and practical aspects of wavelet analysis.
+
+Grasping specific properties of wavelets, such as symmetry, vanishing moments, compact support, and mass conservation, \todo{helps} understanding the design of the wavelets utilized in this research.
+Symmetry in wavelets facilitates image reconstruction by ensuring that the error pattern is symmetric, which is beneficial for visual perception.
+Vanishing moments enable wavelets to disregard specific data trends, beneficial for noise reduction and data compression.
+Mass preservation is critical in ensuring that the total mass or information content of the signal remains unchanged post-transform, a necessity for accurate simulations.
+We provide some additional details on these properties in the Appendix \ref{app:wavelet_properties}, but the literature referenced earlier, particularly the works by Daubechies and Mallat, provides in-depth insights into these properties.
+% However, we will elaborate on the Multiresolution Analysis (MRA) because it is the key concept that makes the DWT a powerful tool for data compression.
+
+\begin{figure}[htbp]
+    \begin{adjustbox}{center}
+        \input{figures/MRA_filters.tikz.tex}
+    \end{adjustbox}
+    \caption{General principle of Multiresolution Analysis using LP and HP Filters. The notation $a_{j,k}$ and $d_{j,k}$ denote the coefficients at the $j$th level of decomposition.}
+    \label{fig:filters_mra}
+\end{figure}
+
+A well-known concept in wavelet theory is Multiresolution Analysis (MRA)~\cite{harten1996multiresolution,abgrall1998multiresolution,muller2007fully}. % TODO maybe it's not the right place for these citations, which are not directly wavelets
+It provides a robust framework for efficient signal processing and analysis, enabling the decomposition of signals at different resolution levels.
+The idea of MRA is to decompose a dicretized signal into a sequence of approximations at different resolution levels, each capturing the characteristics of the signal at a specific scale.
+This process can be reversible, allowing for the reconstruction of the original signal from the approximations.
+
+Figure \ref{fig:filters_mra} illustrates the general principle of MRA using low-pass and high-pass filters.
+Each level of discrete wavelet transform corresponds to a pair of low-pass and high-pass filters.
+The low-pass filter obtains the approximation coefficients $a_{j,k}$, while the high-pass filter captures the detail coefficients $d_{j,k}$.
+The detail coefficient capture the disrepancy between the "expected" signal and the actual signal.
+The notation $a_{j,k}$ and $d_{j,k}$ denote the coefficients at the $j$th level of decomposition.
+The approximation coefficients serve as input for the next decomposition level, and the process repeats until the desired level of decomposition is achieved.
+If the transform is reversible, the original discretized signal can be reconstructed using inverse filters specially designed to combine the approximation and detail coefficients from each level.
+
+\begin{figure}[htbp]
+    \begin{adjustbox}{center}
+        \input{figures/MRA_schema.tikz.tex}
+    \end{adjustbox}
+    \caption{
+        Multiresolution Analysis using a Gaussian function for signal decomposition.
+        The continuous signal (dotted line) is represented by 16 sampled points.
+        The green approximation coefficients capture the low-frequency components, while the red details represent the discrepancies between the approximation and the analyzed signal.
+        The notation $a_{j,k}$ and $d_{j,k}$ indicates the coefficients at the $j$th level of decomposition.
+        For example, $d_{1,k}$ corresponds to the detail coefficients after one level of wavelet transform.
+        After each decomposition level, the signal is downsampled by a factor of two.
+        }
+    \label{fig:mra_schema}
+\end{figure}
+
+To visually show the concept of MRA, refer to Figure~\ref{fig:mra_schema}, which depicts the process using a Gaussian-like function as the original signal.
+The green dots represent the original signal obtained by sampling the continuous original signal at equally spaced intervals.
+The red dots represent the detail coefficients, highlighting discrepancies between the approximation coefficients and the exact values of the original signal.
+In this example, a variation of Haar wavelets is employed, where $a_{j,k}$ coefficients remain identical to those of the previous level, and $d_{j,k}$ coefficients are calculated as the difference between the analyzed signal and the $a_{j,k}$ coefficients.
+Note that these wavelets are designed for clarity and pedagogical purposes, and may not be efficient or practical for real-world applications.
+
+Overall, MRA offers a structured approach for breaking down signals into layers at various scales, enhancing signal processing and analysis efficiency.
+It operates under the premise that signals display consistency or regularity across these scales.
+When signals vary greatly at different scales, MRA may not be as effective.
+However, the required regularity is often seen in CFD simulations, making MRA a suitable tool for data compression in this context.
+The selection of wavelets is also crucial, as it determines the properties of the compression scheme which can be critical for the accuracy of the simulation.
+The forthcoming section will explore wavelet design, focusing on attributes that render them ideal for CFD simulations.
+
+\section{Designing Wavelets for CFD Simulations} \label{sec:wavelet_design}
+
+\subsection{Challenges} \label{sec:challenges}
+
+Designing wavelets for CFD simulations focuses on achieving efficient data compression while preserving important aspects of the signal.
+As discussed in Section \ref{sec:distributed_stencils}, the global grid is typically divided into subgrids, each managed by a separate processor, which influences the application of wavelet transforms.
+Typically, wavelet transforms anticipate a certain size for these subgrids, which introduces constraints on the possible global grid size.
+Adjusting the sizes and numbers of these subgrids, however, often provides a satisfactory solution to these constraints.
+A significant challenge arises from the fact that signals within these subgrids do not exhibit periodic patterns, contrary to the usual expectations for wavelet transforms.
+Considering wavelets that account for neighboring values could offer a solution, but such values are not always accessible.
+Focusing on ensuring vanishing moments across the analyzed interval, especially at non-periodic boundaries, presents another strategy to address the challenges of non-periodicity.
+In practice, maintaining constant boundary values during the transform facilitates the synchronization of subgrids, although the specifics of this synchronization depend on the chosen computational scheme and its implementation.
+This method simplifies the process, though it is not a strict requirement.
+
+Energy conservation is another key property in wavelet design, that ensures that the total energy or information content of the signal remains unchanged at each level of decomposition \todo{ce n'est pas possible: la compression fait toujours diminuer l'énergie...}.
+A less restrictive condition is to ensure that the compression scheme is conservative, meaning that the mass of the reconstructed signal is equal to the mass of the original signal.
+We ensure this property by verifying that the details wear no mass and refer to it as mass conservation.
+Ensuring a conservative scheme is identified as essential in most numerical schemes~\cite{hou1994nonconservative}.
+However, simply preserving mass does not guarantee the accuracy of simulations; the induced error of the compression must also be managed effectively~\cite{cohen2003fully}.
+Achieving mass conservation at the global grid level is, hence, imperative.
+It is trivial to show that preserving the mass within a subgrid is a sufficient but not necessary condition to achive mass conservation at the global level.
+
+Finally, the final goal is to achieve high compression ratios.
+As we have explained in the previous section, the MRA framework produces a set of approximations that are close to the original signal, and a set of details that capture the discrepancies between the approximations and the original signal.
+The details are expected to be small in most cases, which reduces the entropy of the data.
+This can be exploited to achieve effective compression, as we will see in Section \ref{sec:entropy_coding_after_DWT}.
+The implication on the design choices is that we must ensure that the details are as small as possible.
+This is often achieved in practice by ensuring filtering of polynomial trends up to a given order, which is a direct consequence of the vanishing moments property of the wavelets.
+
+In the next sections, we present two approaches: the first one is based on the LGT5/3 wavelets, and the second one is based on the Haar wavelets.\todo{si tu parles des ondelettes de Erwan, ce n'est pas Haar, mais une variante}
+We will first present them in the 1D case, and extend them to the multi-dimensional case in Section \ref{sec:multi_d_wavelets}.
+
+\subsection{Notations and Definitions} \label{sec:notations}
+
+Here, we assume that the signal is defined on the interval $[0,1]$ for the sake of simplicity.
+The extension to other intervals is straightforward, and we will not discuss it here.
+Let $f$, defined on $[0,1]$, be the non-periodic signal on which we want to apply the DWT and $J$ be the sampling scale.
+It is important to note that our formulation differs from the standard wavelet transform, which is typically applied to signals defined on the entire real line or on a periodic interval. A lot of works have been done on wavelets on the interval (see, for instance \cite{cohen1993wavelets,dahmen1999biorthogonal, auscher1992wavelets, bertoluzza2017new}). We will use one of the simplest approach, the so called mirror wavelet described in the book of Mallat \cite{mallat1999wavelet}.
+
+We begin with $2^J+1$ sampling points:
+\begin{equation}
+\label{eq:sampling_points_power_of_2_plus_1}
+x_{J,k}=k2^{-J},\quad0\leq k\leq2^{J},\quad J\geq0,
+\end{equation}
+where $k$ corresponds to the index of the point in the grid ${x_{J,k}}_{0\leq k\leq2^{J}}$.
+We can note that for any scale $J$, the first and last points are fixed:
+\begin{equation}
+x_{J,0}=0,\quad x_{J,2^{J}}=1.
+\end{equation}
+For a given scale \( J \), the signal is represented using \( 2^J + 1 \) points.
+Let us point out that at the coarsest scale $J=0$ the signal is represented by its values at the two boundary points $x=0$ and $x=1$.
+
+We now define the wavelet coefficients \( a_{j,k} \) and \( d_{j,k} \) to refer to the approximation and detail coefficients at scale \( j \), respectively.
+At the finest scale \( j = J \), the approximation coefficients are the samples of the signal \( f \):
+\begin{equation}
+\label{eq:approximation_coefficients_finest_scale}
+a_{J,k}=f(x_{J,k}),\quad0\leq k\leq2^{J}.
+\end{equation}
+% Given approximation and detail coefficients at scale \( j+1 \), the approximation and detail coefficients at scale \( j \) are found by applying the DWT transform:
+Then, the DWT allows to compute the approximation and detail coefficients at a coarser scale.
+If we adopt a generic view of the DWT, the approximation and detail coefficients at scale \( j-1 \) are found by applying the DWT transform on the approximation coefficients at scale \( j \).
+\begin{equation}
+a_{j-1,k} = T_{\text{j,k,approx}}(a_{j,0}, a_{j,1}, \ldots, a_{j,2^{j}}),\quad 0 \leq k \leq 2^{j-1}
+\end{equation}
+\begin{equation}
+d_{j-1,k} = T_{\text{j,k,detail}}(a_{j,0}, a_{j,1}, \ldots, a_{j,2^{j}}),\quad 0 \leq k < 2^{j-1}
+\end{equation}
+for \( 0 \leq k \leq 2^{j} \), where \( T_{\text{j,k,approx}} \) and \( T_{\text{j,k,detail}} \) are the transforms that compute the approximation and detail coefficients at scale \( j-1 \) from the approximation coefficients at scale \( j \).
+However, if compactly supported wavelets are used, the transform can often be expressed in a more elegant manner.
+The goal is find the $T$ transforms that satisfy a set of constraints.
+For our purposes, the constraints and goals have been stated in the previous section.
+
+Finally, let us introduce the matrix representation of the DWT, which is often used in the classical wavelet theory.
+Firstly, the DWT can be expressed as a vector-to-vector application:
+\begin{equation}
+(u_0, u_1, \ldots, u_{2^j}) \mapsto (v_0, v_1, \ldots, v_{2^{j}}),
+\end{equation}
+where \( u \) is the vector of approximation coefficients at scale \( j \) and \( v \) is the vector of approximation and detail coefficients at scale \( j-1 \).
+For example, we can represent $u$ and $v$ as:
+\begin{equation}
+u=\begin{pmatrix} a_{j,0}\\ a_{j,1}\\ \vdots\\ a_{j,2^{j}} \end{pmatrix}
+\end{equation}
+and
+\begin{equation}
+\label{eq:vector_v}
+v=\begin{pmatrix} a_{j-1,0}\\ d_{j-1,0}\\ a_{j-1,1}\\ d_{j-1,1}\\ \vdots\\ a_{j-1,2^{j-1}-1}\\ d_{j-1,2^{j-1}-1}\\ a_{j-1,2^{j-1}} \end{pmatrix}.
+\end{equation}
+Classically, $u$ and $v$ have the same size, which lets us represent the transform as a matrix \( A \) such that:
+\begin{equation}
+\label{eq:DWT_matrix_form}
+v=Au.
+\end{equation}
+Then, if the transform is bijective, there exists a matrix \( A^{-1} \) such that:
+\begin{equation}
+\label{eq:DWT_matrix_form_inverse}
+u=A^{-1}v.
+\end{equation}
+
+\subsection{LGT5/3 and CDF9/7 Wavelets} \label{sec:LGT5_3_CDF9_7}
+% TODO Get the visual shape of the wavelet
+% TODO verify that we cite everything correctly (check from the original version in CEMRACS2022 and Wiley)
+
+For constructing our DWT, we follow the lifting scheme introduced by Sweldens~\cite{sweldens1995lifting,sweldens2000building}, which provides a flexible and efficient approach for wavelet construction.
+At any scale, the first and last coefficients are fixed to the boundary values of the signal, with the intention of making the boundaries of the interval more easily accessible in CFD implementations:
+\begin{equation}
+\label{eq:boundary_values_unchanged}
+a_{j,0}=x_{J,0}=f(0) \quad \text{and} \quad a_{j,2^j}=x_{J,2^J}=f(1), \quad 0\leq j\leq J.
+\end{equation}
+Since these two points remain unchanged, they can be accessed more directly during the synchronization of different subgrids.
+They are intentionally chosen to have even $k$ indices for \( j \geq 1 \) and will always correspond to approximation coefficients.
+In our setting, at scale \( j \geq 1 \), there are \( 2^{j-1}+1 \) even indices and \( 2^{j-1} \) odd indices, which correspond to the framework we set in the previous section, but differs from the usual wavelet construction.
+
+Now, let us introduce a linear interpolation expectation that will lead to vanishing moments.
+Firstly, we expect the approximation coefficients to satisfy:
+\begin{equation}
+\label{eq:approximation_close_to_signal}
+a_{j,k} \approx f(x_{j,k}).
+\end{equation}
+If we expect the signal to be locally linear, we can also expect the odd samples to satisfy the following linear interpolation:
+\begin{equation}
+\label{eq:odd_samples_linear_interpolation}
+a_{j,2k+1} \approx \frac{a_{j,2k}+a_{j,2(k+1)}}{2}, \quad 0\leq k\leq2^{j-1}-1.
+\end{equation}
+We can then define the detail coefficients at scale \( j-1 \) as:
+\begin{equation}
+\label{eq:compute_details_general}
+d_{j-1,k}=a_{j,2k+1}-\frac{a_{j,2k}+a_{j,2(k+1)}}{2}, \quad 0\leq k\leq2^{j-1}-1,
+\end{equation}
+which will ensure near-zero detail coefficients if the signal is locally linear.
+
+We now need to define the approximation coefficients \( a_{j-1,k} \) at scale \( j-1 \).
+We want these coefficients to satisfy multiple properties.
+First, we want them to be close to the signal \( f \) at the sampling points \( x_{j-1,k} \), to match the expectation we made in equation (\ref{eq:approximation_close_to_signal}).
+Second, to achieve minimal memory intensity, we want to use as few other coefficients as possible.
+One way to achieve this is to only use the approximation coefficients at scale \( j \) and the detail coefficients at scale \( j-1 \).
+For example, we can introduce coefficients \( \alpha_{j,k} \), and define:
+\begin{equation}
+a_{j-1,k} = a_{j,2k} + \alpha_{j-1,k-1} d_{j-1,k-1} + \alpha_{j-1,k} d_{j-1,k}, \quad 0 < k < 2^{j-1}. \label{eq:compute_samples_general}
+\end{equation}
+This corresponds to the lifting part of the lifting scheme (because the coefficients $a_{j-1,k}$ are "lifted").
+Let us note that the first and last coefficients (with $k=0$ and $k=2^{j-1}$) correspond to the fixed boundary values and are not modified.
+This approach ensures that the approximation coefficients remain close to the signal, as the detail coefficients are expected to be small.
+We have the relation:
+\begin{equation}
+a_{j-1,k} = a_{j,2k} + \mathcal{O}(d_{j-1,k-1}+d_{j-1,k}),
+\end{equation}
+which, combined with equation (\ref{eq:approximation_coefficients_finest_scale}), ensures that all the approximation coefficients remain "close" to the signal as long as the detail coefficients are small.
+Several choices of coefficients \( \alpha_{j,k} \) are possible, but only one satisfies the mass conservation property.
+The mass conservation property ensures that the mass of the original sampled signal in $[0,1]$ exactly equals that of the wavelets associated with the approximation coefficients at any scale.
+It can be expressed as:
+\begin{equation}
+\frac{f(0)+f(1)}{2} + \sum_{k=1}^{2^{j-1}-1} a_{j-1,k} = \frac{f(0)+f(1)}{4} + \frac{1}{2} \sum_{k=1}^{2^{j}-1} a_{j,k}. \label{eq:conservation}
+\end{equation}
+This equation is essentially a trapezoidal quadrature formula.
+The $\frac{1}{2}$ factor on the boundary values stems directly from the shape of the wavelets.
+Appendix~\ref{app:mass_conservation} provides a visual interpretation of this phenomenon.
+This $\frac{1}{2}$ factor does pose a practical challenge in the general case, since it could allow some mass to escape from the subgrids.
+However, thanks to the fixed boundaries we imposed in equation (\ref{eq:boundary_values_unchanged}), mass conservation is guaranteed at the level of the subgrid, as we will show in Section~\ref{sec:thresholding} and Appendix~\ref{TODO}.
+An other way of stating the mass conservation property is to say that the details wear no mass.
+This implies that any modification of the detail coefficients will not affect the mass of the reconstructed signal, which has important implications for the compression scheme.
+
+We can check that the only choice of coefficients \( \alpha_{j,k} \) that satisfies mass conservation is:
+\begin{equation} \label{eq:alpha}
+    \alpha_{j-1,k} =
+    \begin{cases}
+    \frac{1}{4} & \text{if } 0 < k < 2^{j-1}-1 \\
+    \frac{1}{2} & \text{if } k = 0 \text{ or } k = 2^{j-1}-1.
+    \end{cases}
+\end{equation}
+Thanks to these coefficients, we can compute the approximation coefficients at scale \( j-1 \).
+
+Hence, to perform the DWT using the lifting scheme, we first compute the detail coefficients at scale \( j-1 \) using equation (\ref{eq:compute_details_general}), and then the approximation coefficients at scale \( j-1 \) using equation (\ref{eq:compute_samples_general}).
+The inverse transform can be obtained by inverting these equations.
+First the even approximation coefficients at scale $j$ can by inverting equation (\ref{eq:compute_samples_general}):
+\begin{equation}
+a_{j,2k} = a_{j-1,k} - \alpha_{j-1,k-1} d_{j-1,k-1} - \alpha_{j-1,k} d_{j-1,k}, \quad 0 < k < 2^{j-1}.
+\end{equation}
+Then, the odd approximation coefficients at scale $j$ can be obtained by inverting equation (\ref{eq:compute_details_general}):
+\begin{equation}
+a_{j,2k+1} = d_{j-1,k} + \frac{a_{j,2k}+a_{j,2(k+1)}}{2}, \quad 0 \leq k \leq 2^{j-1}-1.
+\end{equation}
+We can see that the lifting scheme offers an efficient way to compute the DWT.
+Both the forward and inverse transforms can be computed in a single pass over the coefficients, which is a significant advantage in terms of memory access and computational complexity.
+
+An other way to represent the same transform is the matrix form (see equations \ref{eq:DWT_matrix_form} and \ref{eq:DWT_matrix_form_inverse}).
+For $j=3$, we obtain
+\begin{equation}
+A=\frac{1}{8}\left[\begin{array}{ccccccccc}
+8 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\
+\noalign{\medskip}-4 & 8 & -4 & 0 & 0 & 0 & 0 & 0 & 0\\
+\noalign{\medskip}-2 & 4 & 5 & 2 & -1 & 0 & 0 & 0 & 0\\
+\noalign{\medskip}0 & 0 & -4 & 8 & -4 & 0 & 0 & 0 & 0\\
+\noalign{\medskip}0 & 0 & -1 & 2 & 6 & 2 & -1 & 0 & 0\\
+\noalign{\medskip}0 & 0 & 0 & 0 & -4 & 8 & -4 & 0 & 0\\
+\noalign{\medskip}0 & 0 & 0 & 0 & -1 & 2 & 5 & 4 & -2\\
+\noalign{\medskip}0 & 0 & 0 & 0 & 0 & 0 & -4 & 8 & -4\\
+\noalign{\medskip}0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 8
+\end{array}\right]
+\end{equation}
+and
+\begin{equation}
+A^{-1}=\frac{1}{8}\left[\begin{array}{ccccccccc}
+8 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\
+\noalign{\medskip}4 & 6 & 4 & -1 & 0 & 0 & 0 & 0 & 0\\
+\noalign{\medskip}0 & -4 & 8 & -2 & 0 & 0 & 0 & 0 & 0\\
+\noalign{\medskip}0 & -2 & 4 & 6 & 4 & -1 & 0 & 0 & 0\\
+\noalign{\medskip}0 & 0 & 0 & -2 & 8 & -2 & 0 & 0 & 0\\
+\noalign{\medskip}0 & 0 & 0 & -1 & 4 & 6 & 4 & -2 & 0\\
+\noalign{\medskip}0 & 0 & 0 & 0 & 0 & -2 & 8 & -4 & 0\\
+\noalign{\medskip}0 & 0 & 0 & 0 & 0 & -1 & 4 & 6 & 4\\
+\noalign{\medskip}0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 8
+\end{array}\right].
+\end{equation}
+
+In the even rows of $A$ (approximation coefficients), the wavelet low-pass filter coefficients are present.
+Conversely, the odd rows (detail coefficients) contain the wavelet high-pass filter coefficients.
+The sum of the coefficients in the even rows is 1, while the sum of the coefficients in the odd rows is 0, which is mandatory for the mass conservation property.
+Notably, the filters at the boundaries of the interval only require one coefficient, indicating their minimal support.
+In contrast, the filters in the middle of the interval have wider (but compact) support, extending over multiple coefficients.
+Away from the boundaries, we observe the filters corresponding to the first-order 5/3 biorthogonal wavelet transform, commonly referred to as the LGT5/3 wavelets~\cite{le1988sub}.
+These wavelets, attributed to Battle and Lemarié \cite{daubechies1992tenp253_254}, are extensively discussed in \cite{cohen1992biorthogonal}. % TODO verify if true
+
+It is possible to increase the number of vanishing moments by using the Cohen-Daubechies-Feauveau 9/7 wavelets \cite{cohen1992biorthogonal}.
+With these wavelets, the construction is similar.
+The contruction of the details become:
+\begin{equation}
+\label{eq:compute_details_9_7}
+d_{j-1,k}=s_{j,2k+1}-\frac{-s_{j,2(k-1)}+9s_{j,2k}+9s_{j,2(k+1)}-s_{j,2(k+2)}}{16},\quad0\leq k\leq2^{j-1}-1.
+\end{equation}
+To make it work for the edge values, we simply extend the coefficients by symmetry, which reduces the order of the wavelets to 1 at the boundaries.
+
+We get the following matrix representation for the CDF9/7 wavelets:
+\begin{equation}
+A=\frac{1}{64}\left[\begin{array}{ccccccccc}
+64 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\
+\noalign{\medskip}-36 & 64 & -32 & 0 & 4 & 0 & 0 & 0 & 0\\
+\noalign{\medskip}-17 & 32 & 39 & 16 & -7 & 0 & 1 & 0 & 0\\
+\noalign{\medskip}4 & 0 & -36 & 64 & -36 & 0 & 4 & 0 & 0\\
+\noalign{\medskip}1 & 0 & -8 & 16 & 46 & 16 & -8 & 0 & 1\\
+\noalign{\medskip}0 & 0 & 4 & 0 & -36 & 64 & -36 & 0 & 4\\
+\noalign{\medskip}0 & 0 & 1 & 0 & -7 & 16 & 39 & 32 & -17\\
+\noalign{\medskip}0 & 0 & 0 & 0 & 4 & 0 & -32 & 64 & -36\\
+\noalign{\medskip}0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 64
+\end{array}\right]
+\end{equation}
+and
+\begin{equation}
+A^{-1}=\frac{1}{64}\left[\begin{array}{ccccccccc}
+64 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\
+\noalign{\medskip}36 & 48 & 32 & -7 & -4 & 1 & 0 & 0 & 0\\
+\noalign{\medskip}0 & -32 & 64 & -16 & 0 & 0 & 0 & 0 & 0\\
+\noalign{\medskip}-4 & -18 & 36 & 46 & 36 & -8 & -4 & 2 & 0\\
+\noalign{\medskip}0 & 0 & 0 & -16 & 64 & -16 & 0 & 0 & 0\\
+\noalign{\medskip}0 & 2 & -4 & -8 & 36 & 46 & 36 & -18 & -4\\
+\noalign{\medskip}0 & 0 & 0 & 0 & 0 & -16 & 64 & -32 & 0\\
+\noalign{\medskip}0 & 0 & 0 & 1 & -4 & -7 & 32 & 48 & 36\\
+\noalign{\medskip}0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 64
+\end{array}\right].
+\end{equation}
+We can see that the CDF9/7 wavelets have a larger support than the LGT5/3 wavelets, which is a direct consequence of the higher order of vanishing moments.
+This is a disadvantage in terms of memory usage and computational complexity, but also in terms of compression ratios when the signal includes a lot of high-frequency components.
+Such components are often present in CFD simulations, where discontinuities are common.
+
+The choice between the LGT5/3 and the CDF9/7 wavelets is not straightforward, as both have their advantages and disadvantages.
+The LGT5/3 wavelets is less memory intensive and requires less computation, but the CDF9/7 wavelets can yield better compression ratios in smmoth regions.
+However, although it can be debated, we believe that the increase in the order of vanishing moments does not justify the additional complexity of implementation and the additional memory usage.
+A more detailed discussion on the choice of wavelets can be found in Section~\ref{sec:discussions}.
+
+Overall, both the LGT5/3 and CDF9/7 wavelets appear to be a suitable choice for CFD simulations, as they have vanishing moments, conserve mass, and are efficient to compute.
+However, one potential drawback is the constraint on the size of the data grid, which must be a power of 2 plus 1.
+It is conceivable that this could lead to an inefficient use of the hardware in practice, as most hardware is designed to work with powers of 2.
+We did not find a way to circumvent this constraint while ensuring all the properties we stated in Section~\ref{sec:challenges}.
+However, if we relieve the constraint of maintaining the boundary values constant, it is possible to design biorthogonal wavelets that do not require the grid size to be a power of 2 plus 1.
+The next section will present one such design, based on the Haar wavelets.
+
+\subsection{Haar Wavelets} \label{sec:haar_wavelets}
+
+% Thank Erwan
+% Get the visual shape of the wavelet
+
+We express our sincere thanks to Erwan Deriaz for his instrumental role in developing the wavelet design featured in this section.
+The Haar wavelets, recognized for their simplicity, serve not only as a fundamental tool for educational purposes but also demonstrate efficacy in practical applications.
+While the piecewise constant Haar wavelets are limited to filtering polynomial trends at order 0 (constant), which insufficient for appropriate data compression, we can enhance their capability by increasing their support.
+This section is dedicated to outlining a DWT scheme based on Haar wavelets, with specific modifications to ensure mass conservation and filtering of polynomial trends up to the second order.
+
+We first modify the sampling points given in equation (\ref{eq:sampling_points_power_of_2_plus_1}) to:
+\begin{equation}
+x_{J,k}=k2^{-J},\quad0\leq k<2^{J},\quad J\geq0.
+\end{equation}
+Contrary to the previous construction, the first and last points depend on the scale \( J \):
+\begin{equation}
+x_{J,0}=2^{-J-1},\quad x_{J,2^{J}-1}=1-2^{-J-1},\quad J\geq0,
+\end{equation}
+which the profound reason why we cannot ensure constant boundary values anymore.
+\commentcf{Not sure at all about this.}
+
+We propose the following construction to compute the coefficients at scale \( j-1 \):
+\begin{equation}
+\label{eq:compute_details_haar}
+d_{j-1,k}=a_{j,2k+1}-a_{j,2k},\quad0\leq k<2^{j-1},\quad j\geq1,
+\end{equation}
+\begin{equation}
+\label{eq:compute_samples_haar}
+a_{j-1,k} = a_{j,2k} + \frac{1}{2} d_{j-1,k}, \quad 0 \leq k < 2^{j-1},\quad j\geq1.
+\end{equation}
+It is close to the piecewise constant Haar construction, which does not allow to filter polynomial trends greater than order 0 (constant), due the inability to use neighbor coefficients.
+It is, however, possible to increase the filtering order by introducing a second lifting, this time on the detail coefficients:
+\begin{equation}
+\label{eq:compute_details_haar_2}
+d'_{j-1,k}=
+\begin{cases}
+    d_{j-1,0}+\frac{3}{4}a_{j-1,0}-a_{j-1,1}+\frac{1}{4}a_{j-1,2} & \text{if } k=0\\
+    d_{j-1,N-1}+\frac{1}{4}a_{j-1,N-1}-a_{j-1,N-2}+\frac{3}{4}a_{j-1,N-3} & \text{if } k=N-1\\
+    d_{j-1,k}+\frac{1}{4}(a_{j-1,k-1}+a_{j-1,k+1}) & \text{otherwise},
+\end{cases}
+\end{equation}
+where $N = 2^{j-1}$ (the number of coefficients at scale \( j-1 \)).
+
+The matrix representation of this transform for \( j = 3 \) is:
+\begin{equation}
+A=\frac{1}{8}\left[\begin{array}{cccccccc}
+4 & 4 & 0 & 0 & 0 & 0 & 0 & 0\\
+-5 & 11 & -4 & -4 & 1 & 1 & 0 & 0\\
+0 & 0 & 4 & 4 & 0 & 0 & 0 & 0\\
+1 & 1 & -8 & 8 & -1 & -1 & 0 & 0\\
+0 & 0 & 0 & 0 & 4 & 4 & 0 & 0\\
+0 & 0 & 1 & 1 & -8 & 8 & -1 & -1\\
+0 & 0 & 0 & 0 & 0 & 0 & 4 & 4\\
+0 & 0 & 3 & 3 & -4 & -4 & -7 & 9
+\end{array}\right].
+\end{equation}
+and
+\begin{equation}
+A^{-1}=\frac{1}{8}\left[\begin{array}{cccccccc}
+11 & 5 & 1 & -1 & 0 & 0 & 0 & 0\\
+-4 & 4 & 0 & 0 & 0 & 0 & 0 & 0\\
+-4 & 4 & 8 & 8 & 1 & -1 & 3 & -3\\
+0 & 0 & -4 & 4 & 0 & 0 & 0 & 0\\
+1 & -1 & -1 & 1 & 8 & 8 & -4 & 4\\
+0 & 0 & 0 & 0 & -4 & 4 & 0 & 0\\
+0 & 0 & 0 & 0 & -1 & 1 & 9 & 7\\
+0 & 0 & 0 & 0 & 0 & 0 & -4 & 4
+\end{array}\right].
+\end{equation}
+
+We can verify that polynomial trends are filtered out thanks to this construction by applying it to a polynomial signal:
+\begin{equation}
+\begin{pmatrix}
+P(1)\\
+P(2)\\
+\vdots\\
+P(8)
+\end{pmatrix}
+\cdot A =
+\begin{pmatrix}
+\frac{5}{2}a + \frac{3}{2}b + c\\
+0\\
+\frac{25}{2}a + \frac{7}{2}b + c\\
+0\\
+\frac{61}{2}a + \frac{11}{2}b + c\\
+0\\
+\frac{113}{2}a + \frac{15}{2}b + c\\
+8a
+\end{pmatrix},
+\end{equation}
+where \( P(x) = ax^2 + bx + c \).
+We can see that all the polynomial trends are filtered out up to the second order for all the detail coefficients (odd rows) appart from the last one, which only filters out the first order.
+
+Thus, we have proposed three distinct wavelet designs, each with its own set of advantages and disadvantages.
+Excluding the initial and final coefficients, the CDF9/7 wavelets are capable of filtering out polynomial trends up to the third order, Haar wavelets up to the second order, and LGT5/3 wavelets to the first order.
+The ability to filter higher-order polynomials should lead to higher compression ratios for signals with a limited presence of high-frequency components, a topic we will delve into in the following section.
+Additionally, the Haar wavelets present a divergence in their design compared to the CDF9/7 and LGT5/3 wavelets.
+While the latter two require the grid size to be a power of 2 plus 1, ensuring boundary preservation, Haar wavelets operate with a grid size that is a strict power of 2 and do not maintain boundary values.
+Nevertheless, all three wavelet designs uphold the principle of mass conservation, essential for the accuracy of simulations.
+In the subsequent section, we aim to broaden the application of these three wavelet designs to multi-dimensional data, proposing a comprehensive compression methodology built upon these principles.
+
+\section{Compression Scheme for multi-dimensional data}
+
+\subsection{Multi-dimensional wavelet transform} \label{sec:multi_d_wavelets}
+
+% Explain why it works to perform the 1D wavelet on each dimension
+% Explain why the dependency structure in 2D/3D is horrible (and, hence, why we cannot parallelize the process easily)
+% Explain what part of the image corresponds to which frequency, with nice examples
+
+% Older version %%
+% The 1-dimensional wavelet transforms we presented are directly extendable to multi-dimensional data.
+% Let us reformulate the LGT5/3 wavelet transform presented in Section \ref{sec:LGT5_3_CDF9_7} for a 2-dimensional signal.
+% The $[0,1]\times[0,1]$ square is divided into a grid of $2^J+1$ points in each direction.
+% Let us represent the sampled signal as a matrix $A_J$ of size $(2^{J}+1)\times(2^{J}+1)$.
+% Then, the 2-dimensional DWT gives us the $A_j$ matrices of size $(2^{j}+1)\times(2^{j}+1)$ for $0\leq j\leq J$ at the scale $j$.
+% The details can be represented using 3 matrices $D_j^x$, $D_j^y$, and $D_j^d$ of size $2^{j-1}\times2^{j-1}$.
+% Each of these matrices represents the details in the horizontal, vertical, and diagonal directions, respectively.
+% We can extrapolate from equations \ref{eq:odd_samples_linear_interpolation} and \ref{eq:compute_details_general} the construction of $D_j^x$ and $D_j^y$:
+% \begin{equation}
+%     \forall 0\leq i<2^{j-1},0\leq l<2^{j}, \quad D_j^x[i,l] = A_j[2i+1,l] - \frac{A_j[2i,l]+A_j[2(i+1),l]}{2}
+% \end{equation}
+% and
+% \begin{equation}
+%     \forall 0\leq k<2^{j},0\leq i<2^{j-1}, \quad D_j^y[k,i] = A_j[k,2i+1] - \frac{A_j[k,2i]+A_j[k,2(i+1)]}{2}.
+% \end{equation}
+
+% Older version %%
+% The finest level of coefficients correspond to the values sampled across the grid:
+% \begin{equation}
+% a_{J,k,l}=f(x_{J,k},x_{J,l}),\quad0\leq k,l\leq2^{J}.
+% \end{equation}
+% The expectation of local linearity given in equation (\ref{eq:odd_samples_linear_interpolation}) can be extended to both the $x$ and $y$ directions:
+% \begin{equation}
+% a_{j,2k+1,l} \approx \frac{a_{j,2k,l}+a_{j,2(k+1),l}}{2}, \quad 0\leq k,l\leq2^{j-1}-1
+% \end{equation}
+% and
+% \begin{equation}
+% a_{j,2k,l+1} \approx \frac{a_{j,2k,l}+a_{j,2k,l+1}}{2}, \quad 0\leq k,l\leq2^{j-1}-1.
+% \end{equation}
+% but also to the diagonal direction:
+% \begin{equation}
+% a_{j,2k+1,2l+1} \approx \frac{a_{j,2k,2l}+a_{j,2(k+1),2(l+1)}}{2}, \quad 0\leq k,l\leq2^{j-1}-1.
+% \end{equation}
+
+The 1-dimensional wavelet transforms we presented are directly extendable to multi-dimensional data.
+The idea is to apply the 1-dimensional wavelet transform to each line of the data independently for each dimension.
+Let us showcase the 2-dimensional wavelet transform with the LGT5/3 wavelets.
+To have a visually appealing representation of the 2-dimensional wavelet transform, let us modify the $v$ vector of our LGT5/3 wavelet transform (equation \ref{eq:vector_v}) as so:
+\begin{equation}
+    % Original v : v=\begin{pmatrix} a_{j-1,0}\\ d_{j-1,0}\\ a_{j-1,1}\\ d_{j-1,1}\\ \vdots\\ a_{j-1,2^{j-1}-1}\\ d_{j-1,2^{j-1}-1}\\ a_{j-1,2^{j-1}} \end{pmatrix}.
+    v=\begin{pmatrix} a_{j-1,0}\\ a{_{j-1,1}}\\ \vdots\\ a_{j-1,2^{j-1}}\\ d_{j-1,0}\\ d_{j-1,1}\\ \vdots\\ d_{j-1,2^{j-1}-1} \end{pmatrix}.
+\end{equation}
+This will group the approximation (low-pass) and detail (high-pass) coefficients on each side of the vector.
+
+% Include the figure 2D_DWT.tikz.tex
+\begin{figure}[htbp]
+    \centering
+    \input{figures/2D_DWT.tikz}
+    \caption{
+        Representation of the 2-dimensional wavelet transform.
+        The L and H correspond to the low-pass and high-pass filters on the corresponding axis.
+    }
+    \label{fig:2D_DWT}
+\end{figure}
+
+Figure \ref{fig:2D_DWT} shows the different parts of the 2-dimensional wavelet transform.
+The approximation coefficients are located in the upper-left corner of the image (LL), while the rest of the coefficients is divided into the LH, HL, and HH parts, depending on the dimension and the type of filter.
+For instance, the LH part corresponds to the low-pass filter on the x-axis and the high-pass filter on the y-axis.
+This representation is possible because the 1-dimensional wavelet transform is commutative across dimensions, meaning that the order in which we apply the wavelet transform to each dimension does not matter.
+In this view, only the LL part is directly related to the original signal, while the other parts represent different types of details.
+It is expected that most values in the details (LH, HL, HH) are small, which is the reason why the DWT should be able to compress the data efficiently (more on this in Section \ref{sec:entropy_coding_after_DWT}).
+
+\begin{figure}[htbp]
+    \centering
+    \begin{subfigure}[b]{0.44\textwidth}
+        \includegraphics[width=\textwidth]{figures/miaou.png}
+        \caption{Original grayscale image.}
+        \label{fig:miaou}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.44\textwidth}
+        \includegraphics[width=\textwidth]{figures/miaou-3step.png}
+        \caption{Resulting grayscale image.}
+        \label{fig:miaou-3step}
+    \end{subfigure}
+    \caption{Transform of a 2-dimensional image (left) after the application of 3 steps of the wavelet scheme (right)
+    In the result (right), the approximation coefficients are located in the upper-left corner of the image.
+    The remaining coefficients represent details at different levels.
+    Details colors are obtained with $\text{mod}(x,256)$, where $x$ is the detail value.
+    The resulting color ranges from 0 (black) to 255 (white).}
+    \label{fig:miaou-2d}
+\end{figure}
+
+Figure \ref{fig:miaou-2d} shows the result of the application of 3 steps of the wavelet scheme to a 2-dimensional image.
+We can recognize the original image in the approximation coefficients (upper-left corner of the image).
+We can also recognize a sketchy version of the image in the different detail levels.
+In particular, we can see that the outline of the cat is well distinguishable in the details.
+We can see that the sought property is reached: the parts of the image that are near-linear result in small coefficients (very dark or very bright colors), while the non-linear parts (outline) result in large coefficients.
+
+This section has explained how the 1-dimensional wavelet transform can be extended to N dimensions.
+The successive application of the DWTs is a bijection that should result in a near-sparse grid of coefficients.
+To obtain compression, the DWT must be integrated in a compression scheme that allows to leverage the sparsity of the coefficients.
+In the next section, we will introduce the notion of thresholding, which is a first step towards achieving compression.
+
+\subsection{Thresholding} \label{sec:thresholding}
+
+% Talk about what happens to the threshold in 2D
+% Show artifacts
+% Prove that the mass is preserved (without the 1/2) and verify it experimentally
+% Show histogram too?
+% Soft thresholding hard thresholding
+
+The idea of thresholding is to nullify the detail coefficients that are below a certain threshold.
+There are multiple justifications to using this approach that we will discuss in this section.
+In this section, every reference to a DWT will be in the context of the LGT5/3 wavelets.
+Discussions regarding the CDF9/7 and Haar wavelets will be presented in the next sections.
+
+We explore two different scenarios as examples.
+The first scenario involves a function defined by the equation below, which includes a discontinuity, making it particularly interesting for our study:
+\[
+    f(x,y) = e^{x-y} \sin(2\pi(x+y)) \times \text{step}(y - x^2),
+\]
+where the step function is defined as:
+\[
+    \text{step}(x) = \begin{cases}
+        1 & \text{if } x \geq 0,\\
+        2 & \text{if } x < 0.
+    \end{cases}
+\]
+This function is shown in Figure \ref{fig:function_1_before_DWT}.
+
+The second scenario involves data from a Saint-Venant (shallow water) simulation at time $t=1s$, shown in Figure \ref{fig:function_2_before_DWT}.
+The simulation starts with a 2-meter square of water in the center of a 1-meter deep pool.
+More details about this simulation and its initial conditions will be provided in the next chapter (Section \ref{sec:description_scheme_saint_venant}), along with Figures \ref{fig:stvenant_t0}, \ref{fig:stvenant_t0.5_base}, and \ref{fig:stvenant_t1_base} to illustrate the evolution over time.
+For our current discussion, we consider the simulation data at $t=1s$ as a two-dimensional array representing the water height at each grid point.
+The two grids are set to a size of $1025\times1025$ points to match the requirements of our LGT5/3 wavelet scheme.
+
+\begin{figure}[htbp]
+    \centering
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{figures/Figure_histogram_function_1_before.png}
+        \caption{}
+        \label{fig:histogram_function_1_before}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{figures/Figure_histogram_function_1_after.png}
+        \caption{}
+        \label{fig:histogram_function_1_after}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{figures/Figure_histogram_function_2_before.png}
+        \caption{}
+        \label{fig:histogram_function_2_before}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{figures/Figure_histogram_function_2_after.png}
+        \caption{}
+        \label{fig:histogram_function_2_after}
+    \end{subfigure}
+    \caption{
+        Intensity histograms of the coefficients for the two scenarios.
+        The histograms are shown before (left) and after (right) the application of 3 steps of the wavelet scheme.
+        The x axis represents the intensity of the coefficients, while the y axis represents the number of coefficients with the corresponding intensity.
+        The coefficients are grouped into 256 bins distributed uniformly between the minimum and maximum values of the coefficients.
+    }
+    \label{fig:histograms}
+\end{figure}
+
+To discuss how the data are compressed, we analyze the histogram of the coefficients.
+Figures \ref{fig:histogram_function_1_before} and \ref{fig:histogram_function_2_before} show the histograms of the coefficients for the two scenarios.
+It provides insights into the distribution of the coefficients and the potential for compression.
+If the distribution is uniform, the potential for compression is low.
+If the distribution is skewed, the potential for compression is high.
+
+Now let us introduce the histograms of the coefficients for the same scenarios, but after the application of 3 steps of the wavelet scheme.
+Figures \ref{fig:function_1_after_DWT} and \ref{fig:function_2_after_DWT} show the grids of coefficients after the application of 3 steps of the wavelet scheme.
+Figures \ref{fig:histogram_function_1_after} and \ref{fig:histogram_function_2_after} show the corresponding histograms.
+We can see that after the application of the wavelet scheme, the histograms become more skewed.
+In particular, most values are concentrated around zero.
+Hence, the histograms suggest that the wavelet scheme has the potential to compress the data efficiently.
+
+A more definitive way to assess the potential for compression is to compute the entropy of the grids.
+The entropy is a measure of the average information content of the data and is defined as:
+\begin{equation}
+    \label{eq:entropy_general}
+    H(X) = -\sum_{i} p(x_i) \log_2(p(x_i)),
+\end{equation}
+where $X$ is the random variable, $p(x_i)$ is the probability of the value $x_i$, and the sum is over all possible values of $X$.
+In practice, $p(x_i)$ is estimated from the frequency of the value $x_i$ in the data.
+Since we work with floating-point numbers, there is one $x_i$ symbol per different floating-point number in the data.
+This is likely to create artifacts.
+A more common approach is to group the floating-point values into bins and compute the entropy of the resulting discrete distribution.
+The formula becomes:
+\begin{equation}
+    \label{eq:entropy_with_bins}
+    H(X) = -\sum_{b} p(\text{bin}^b_{\text{min}} \leq X < \text{bin}^b_{\text{max}}) \log_2(p(\text{bin}^b_{\text{min}} \leq X < \text{bin}^b_{\text{max}})),
+\end{equation}
+where the sum is over all the bins, and $\text{bin}^b_{\text{min}}$ and $\text{bin}^b_{\text{max}}$ are the minimum and maximum values of the $b$-th bin, respectively.
+$X$ is the random variable representing the coefficients of the grid.
+The bins can be chosen in different ways, but the most common approach is to use a uniform binning.
+For the following, we use 256 bins, which is coarse but sufficient for our purposes.
+We verified that increasing the number of bins changes the entropy but not the conclusions.
+
+The entropy of the grids provides a measure of the potential for compression.
+With grid cells assumed to be independent, the source coding theorem sets a minimum on the bits needed for encoding:
+\begin{equation}
+    \label{eq:source_coding_theorem}
+    \text{Number of bits} \geq \text{Entropy} \times \text{Number of cells}.
+\end{equation}
+Hence, there is a relationship between the entropy and the potential for compression.
+With 256 bins in use, the highest entropy is $\log_2(256) = 8$ bits per cell.
+Let us note that in the case of data produced by successive DWTs, grid cells are clearly not independent.
+Thus, a specific compression approach could achieve better than this theoretical minimum by leveraging the spatial correlation between the cells.
+
+Going back to the histograms, we can compute their correponding entropies thanks to formula~\ref{eq:entropy_with_bins}.
+The first image has an entropy of approximately $7.222$ without the wavelet scheme and $1.291$ after the application of 3 steps of the wavelet scheme.
+The second image has an entropy of approximately $6.511$ without the wavelet scheme and $0.240$ after the application of 3 steps of the wavelet scheme.
+Hence, applying the wavelet scheme, which is bijective and does not result in a loss of information, has increased the compression potential of the data.
+However, it is possible to further increase the compression ratio by allowing for a loss of information.
+
+As we have stated in Section~\ref{sec:wavelet_design}, the detail coefficients can be modified without affecting the mass of the reconstructed signal.
+This provides leverage to achieve higher compression ratios.
+One can notice that small details are responsible for a large part of the information content of the data, while having the least impact on the reconstructed signal.
+The idea is then to nullify the small details to achieve compression.
+For this we set a threshold and nullify the details that are below this threshold.
+What is expected is that for a low threshold value, the increase in compression ratio and the loss are low, while for a high threshold value, the increase in compression ratio is high, but the loss is also high.
+It is, hence, likely that there exists an optimal threshold value that maximizes the compression ratio for a given acceptable loss.
+
+There are multiple ways to implement this idea.
+The most straightforward way, known as hard thresholding, is to set to zero all the details that are below the threshold.
+The rest of the coefficients are left unchanged.
+An other way, known as soft thresholding, is to move all the details towards zero by a certain amount (that can be assimilated to the threshold in hard thresholding).
+This second method avoids creating a hole in the histogram, which can lead to artifacts in the reconstructed signal.
+However, both methods can be used in practice.
+
+\begin{figure}[htbp]
+    \centering
+    \begin{subfigure}[b]{0.3\textwidth}
+        \includegraphics[width=\textwidth]{figures/Figure_function_1_before.png}
+        \caption{}
+        \label{fig:function_1_before_DWT}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.3\textwidth}
+        \includegraphics[width=\textwidth]{figures/Figure_function_1_after.png}
+        \caption{}
+        \label{fig:function_1_after_DWT}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.3\textwidth}
+        \includegraphics[width=\textwidth]{figures/Figure_function_1_reconstructed.png}
+        \caption{}
+        \label{fig:function_1_reconstructed}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.3\textwidth}
+        \includegraphics[width=\textwidth]{figures/Figure_function_2_before.png}
+        \caption{}
+        \label{fig:function_2_before_DWT}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.3\textwidth}
+        \includegraphics[width=\textwidth]{figures/Figure_function_2_after.png}
+        \caption{}
+        \label{fig:function_2_after_DWT}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.3\textwidth}
+        \includegraphics[width=\textwidth]{figures/Figure_function_2_reconstructed.png}
+        \caption{}
+        \label{fig:function_2_reconstructed}
+    \end{subfigure}
+    \caption{
+        The original functions (left), the functions after 3 steps of the wavelet scheme (center), and the reconstructed functions (right).
+        A hard threshold of $10^{-3}$ was used on the details before the reconstruction.
+    }
+    \label{fig:functions_with_DWT_and_reconstruction}
+\end{figure}
+
+It is also possible to set a different threshold depending on the scale of the details or on local properties of the data.
+Applying the same threshold to all the details is referred to as \emph{global thresholding} or \emph{VisuShrink}.
+There exists several other approaches such as \emph{SureShrink}, \emph{BayesShrink}, and \emph{NeighShrink} that set the threshold depending on the local properties of the data~\cite{stein1981estimation,donoho1995noising,donoho1995adapting,chang2000adaptive}.
+These methods often minimize a different type of loss, such as the mean squared error or the mean absolute error.
+However, we did not focus on these methods in this study, with the idea that if our proofs of concept are successful, the thresholding method can be refined in the future.
+
+\input{tables/Table_entropy_loss_LGT53_f1.tex}
+\input{tables/Table_entropy_loss_LGT53_f2.tex}
+
+Tables \ref{tab:entropy_loss_LGT53_f1} and \ref{tab:entropy_loss_LGT53_f2} show the entropy and the loss for the LGT5/3 wavelets with hard thresholding.
+The tables for the CDF9/7 and Haar wavelets are shown in Appendix~\ref{app:wavelet_transform}.
+The \emph{random} "threshold" corresponds to setting all the details to a random value following a normal distribution with no relation to the original data.
+The maximum error is computed as the maximum absolute difference between the original data and the reconstructed data, while the mass deviation is computed using two different methods.
+The first method corresponds to the absolute difference between the mass of the original data and the mass of the reconstructed data:
+\todo{si possible, il faudrait renormaliser par la masse totale, comme d'hab}
+\begin{equation}
+    \label{eq:mass_deviation_v1}
+    \text{Mass deviation} = \left| \sum_{i,j} f(x_i,y_j) - \sum_{i,j} f_{\text{reconstructed}}(x_i,y_j) \right|.
+\end{equation}
+The second method is similar, but a weight of $\frac{1}{2}$ is applied to the borders:
+\begin{equation}
+    \label{eq:mass_deviation_v2}
+    \text{Mass deviation} = \left| \sum_{i,j} \omega_{i,j} f(x_i,y_j) - \sum_{i,j} \omega_{i,j} f_{\text{reconstructed}}(x_i,y_j) \right|,
+\end{equation}
+where $\omega_{i,j}$ is a weight that is defined as:
+\begin{align}
+    \omega_{i,j} &= p_i \cdot q_j, \\
+    p_i &= \begin{cases}
+        \frac{1}{2} & \text{if } i=0 \text{ or } i=x_{\text{max}},\\
+        1 & \text{otherwise},
+    \end{cases} \\
+    q_j &= \begin{cases}
+        \frac{1}{2} & \text{if } j=0 \text{ or } j=y_{\text{max}},\\
+        1 & \text{otherwise},
+    \end{cases}
+\end{align}
+where $x_{\text{max}}$ and $y_{\text{max}}$ are the maximum indices in the $x$ and $y$ directions, respectively.
+This second method is used to verify that the mass conservation property, as formulated in equation~\ref{eq:conservation}, is respected.
+This formulation is only valid for the LGT5/3 and CDF9/7 wavelets, as the Haar wavelets are constructed differently.
+Note that the corners use a weight of $\frac{1}{4}$, due to the fact that they are shared by two borders.
+Given the absolute nature of mass deviation, presenting the total of the original functions proves informative: approximately $-4574.775$ for the initial function and approximately $1311273$ for the subsequent function.
+
+Different conclusions can be drawn from the tables.
+The first function demonstrates the benefits of performing the thresholding, as the entropy is reduced by a factor of approximately 4.
+The second function, however, does not show the same benefits, as the entropy is not subsantially reduced.
+This is presumably due to the highly smooth nature of the function, which is perfectly captured by the wavelet scheme.
+We can see this from the fact that the entropy does not substantially change whether no thresholding is applied or all the details are thresholding.
+The maximum error also remains relatively low, even when all the details are thresholded.
+
+The mass deviation is of the order of machine precision\todo{si tu avais renormalisé, tu aurais la machine precision...}, compared to the total mass of the function.
+All the computations are performed in double precision, the mantissa of which is 53 bits long ($\approx 16$ decimal digits).
+We, hence, observe effective mass conservation, as the mass deviation is close to the machine precision.
+This observation is further supported by the fact that setting random details does not impact the mass of the reconstructed function.
+Let us note that the rounding errors can be caused by the wavelet lifting scheme, which explains why even no thresholding can lead to a small mass deviation.
+
+In principle, the mass conservation for the LGT5/3 wavelets should be computed with regards to formula~\ref{eq:mass_deviation_v2}.
+However, since the border values of the 1D wavelet transform remain unchanged, the formula~\ref{eq:mass_deviation_v1} is equivalent to formula~\ref{eq:mass_deviation_v2} .
+A proof of this is provided in Appendix~\ref{TODO}. % TODO
+
+Finally, the maximum error appears to be correlated with the threshold value.
+This is expected, as the thresholding controls the amount of information that is lost.
+Setting an optimal threshold value is a trade-off between the compression ratio and the loss.
+There are no generic methodological guidelines to set the threshold value.
+In particular for our purposes, where the loss in one compression step can impact the next simulation steps.
+However, we rely on the assumption that the threshold values can be set empirically most of the time.
+
+In summary, we have shown that the wavelet scheme can be combined with thresholding to achieve lower entropy and presumably higher compression ratios.
+To achieve effective compression, the whole process must be combined with a lossless compression method.
+In the next section, we will discuss about the practical aspects of wavelet-based compression schemes.
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Figure \ref{fig:regular-2d} displays the function before and after applying the wavelet scheme.
+% We set all detail values between $-0.2$ and $0.2$ to zero, causing a noticeable loss.
+% Despite this, the reconstructed image in Figure \ref{fig:regular-6step} closely matches the original function.
+% The discontinuity remains clear because we keep all large details, which are mainly due to the discontinuity.
+% Artifacts appear near the discontinuity as a result of the loss.
+
+% We also checked that the mass of the signal stays the same before and after the transform, within the limits of machine precision.
+% This holds true even when we set all the details to zero.
+% In the compressed form, there are 481 non-zero coefficients out of a total of 16,641.
+% This suggests a likely compression ratio of about $\frac{481}{16641} \approx 34.596674$.
+
+% % Regular function with a discontinuity plot:
+% \begin{figure}[htbp]
+%     \centering
+%     \begin{subfigure}[b]{0.34\textwidth}
+%         \includegraphics[width=\textwidth]{figures/Figure_discontinuous_original.png}
+%         \caption{Original function.}
+%         \label{fig:regular}
+%     \end{subfigure}
+%     \begin{subfigure}[b]{0.34\textwidth}
+%         \includegraphics[width=\textwidth]{figures/Figure_discontinuous_degraded.png}
+%         \caption{Reconstructed function.}
+%         \label{fig:regular-6step}
+%     \end{subfigure}
+%     \caption{Transform of a 2-dimensional regular function with a discontinuity on a 129x129 grid (left) after the application of 6 steps of the wavelet scheme (right).
+%     The details that are between $-0.2$ and $0.2$ are nullified to create a loss.
+%     The reconstructed image (right) is noticeably degraded.
+%     In particular, artifacts appear near the discontinuity.
+%     }
+%     \label{fig:regular-2d}
+% \end{figure}
+
+% In summary, we have described a wavelet transform tailored for Computational Fluid Dynamics (CFD) simulations, satisfying essential properties like biorthogonality, compact support, and vanishing moments.
+% The transform is designed to be mass-preserving and border-preserving, making it highly suitable for applications where these properties are crucial.
+% This 1-dimenstional transform is directly applicable to N-dimensional domains.
+% The nature of the transform allows us to easily control the level of detail that we want to keep.
+% The mass-preserving property ensures that the overall mass of the signal remains unchanged, even when details are altered or nullified.
+% This opens the door for high compression ratios with minimal reconstruction error.
+% In the upcoming section, we will delve into methods for achieving effective compression, leveraging the properties and flexibility of the presented wavelet transform.
+
+\subsection{Compression methodology} \label{sec:entropy_coding_after_DWT}
+
+% Say that a lot of lossless compressions would work
+% Show compression ratios, and compare with other methods
+% Show the loss (NMSE?)
+% Show a histogram of the coefficients to show that most of them are small
+% TODO verify that we talk about JPEG2000 somewhere
+% Maybe a 3D case?
+% Compare the impact of hard/soft thresholding and say that hard thresholding is better
+% Compare LGT5/3 and CDF9/7 and say that LGT5/3 is better
+
+The application of wavelet transform coupled with thresholding has demonstrated its capacity to effectively lower the entropy of data.
+Following the framework of Shannon, a reduction in entropy signifies a decrease in information quantity, essential for achieving data compression.
+This section will explore the potential of integrating the wavelet transform in a compression scheme, leveraging the reduced entropy to achieve high compression ratios.
+
+Since the entropy of the data has been reduced, simply using an existing entropy-based compression algorithm, such as Huffman coding or arithmetic coding, would be sufficient to achieve compression.
+These methods are generally not designed to handle floating-point numbers, but the DWTs and the thresholding step have made the data more convenient to compress.
+Hence, we can directly use these methods on the resulting data and expect high compression ratios.
+
+After the thresholding step, the data are expected to be sparse, with most of the coefficients being zero.
+This observation leads to the idea of using sparse storage formats instead of classical lossless compression algorithms.
+Multiple sparse storage formats exist, such as the Compressed Sparse Row (CSR) format, the Compressed Sparse Column (CSC) format, and the Coordinate (COO) format.
+These formats are designed to store sparse matrices efficiently, and can be extended to store sparse tensors.
+It is important that these sparse storage methods can constitute a compression method only because the thresholding step has made the data sparse.
+
+\input{tables/Table_metrics_wavelets_compression_f1}
+\input{tables/Table_metrics_wavelets_compression_f2}
+
+Tables \ref{tab:metrics_wavelets_compression_f1} and \ref{tab:metrics_wavelets_compression_f2} present the compression ratios and the maximum error across various wavelet types and thresholding techniques, leveraging four distinct lossless compression approaches: COO format, Deflate, Burrows-Wheeler, and Lempel-Ziv-Markov chain algorithms.
+The latter 3 methods are run thanks to the zlib, bzip2, and lzma libraries, respectively.
+The COO format is a sparse storage format that stores that data as a list of tuples $(i,j,v)$, where $i$ and $j$ are the indices of the non-zero values, and $v$ is the value of the non-zero value.
+For this experiment, we did not use actual COO storage, but computed the size according to the number  of non-zero values (assuming 64 bits for $v$ and $2\times10$ bits for $i$ and $j$).
+The Deflate algorithm, on which zlib is based on, merges LZ77 with Huffman coding.
+The bzip2 implementation of the Burrows-Wheeler transform alongside Huffman coding.
+Lastly, the LZMA algorithm, powered by lzma, uses the Lempel-Ziv-Markov chain technique.\todo{citer des articles sur ces algorithmes}
+
+Regarding the entropy, this table lets us compare the achieved entropy reduction of all the wavelet types and thresholding techniques.
+The LGT5/3 and Haar wavelets have similar entropy reductions, while the CDF9/7 wavelets appear to behave differently.
+The first function achieves less entropy reduction with the CDF9/7 wavelets (compared to LGT5/3 and Haar), while the second function achieves more entropy reduction.
+This is explained by the clear discontinuity that is present in the first function that impacts more details with the CDF9/7 wavelets, which have a larger support.
+The thresholding method (hard or soft) does not appear to impact the entropy reduction significantly.
+However, using soft thresholding consistently results in an increase of the maximum error.
+Hence, in the context of CFD simulations, where the error is more important than the visual quality, hard thresholding should be preferred.
+
+Finally, the compression ratios achieved in the different cases provide insights into the potential memory gains that can be achieved in practice.
+The point of this study is not to compare the lossless compression methods, but rather to show that they all achieve high compression ratios.
+It is also interesting to see that the COO format, which is not a generic compression algorithm, appears to be competitive with the other methods.
+This is because the sparsity of the data, which is the proportion of zero values, is particularly high.
+
+On the first function, the LGT5/3 wavelets appear to be more compressive than the CDF9/7 and Haar wavelets, while they are the least compressive on the second function.
+The second function demonstrate the strength of the higher filtering order of the different wavelets.
+As it does not possess any clear discontinuity, the best compression ratios are achieved with the CDF9/7 wavelets (third order filtering), followed by the Haar wavelets (second order filtering), and then the LGT5/3 wavelets (first order filtering).
+The first function, however, demonstrates that the discontinuities are captured more efficiently by the LGT5/3 wavelets, as they achieve the best compression ratios.
+% TODO better transition with the next paragraph
+
+Globally, the compression ratios achieved with hard thresholding are higher than those achieved with soft thresholding.
+This is counter-intuitive, as soft thresholding appears to tend to achieve slightly higher entropy reductions (which should lead to higher compression ratios).
+We believe that this is due to the floating-point representation, which makes the near-zero region denser.
+Intuitively, two values above a given threshold are more likely to be the same than two values below the threshold.
+Consequently hard thresholding appears to be better for our purposes, as it consistently achieves higher compression ratios and lower maximum errors.
+
+Overall, the compression ratios achieved thanks to this compression scheme are high, with minimal impact on the precision of the data.
+While various lossless compression algorithms could further compress the output, this study focuses on showcasing the wavelet transform as an efficient compression tool for CFD simulations.
+There is promising potential for the development of new lossless compression techniques tailored for optimal performance in CFD simulations within this framework.
+In concluding this study, the ensuing section will discuss the practical advantages and potential limitations of the proposed compression approach.
+
+\section{Discussions} \label{sec:discussions}
+
+% Brag about the compression ratios
+% Open the discussion on the potentially negative impact of the lossy compression on the simulation
+% Open about the concern that the compression might be too slow
+% Talk about what error is relevant in CFD simulations. We think the max error is a good metric.
+
+The compression method discussed in this chapter shares its conceptual foundation with the JPEG2000 standard.
+Yet, our method diverges from this standard to better address the unique challenges of CFD simulations.
+These challenges not only encompass the numerical properties outlined in Section~\ref{sec:challenges} but also the overall approach to compression, which can be tailored to match implementation-specific requirements.
+Throughout this chapter, we have explored various wavelets and conducted targeted testing with the goal of identifying the most effective strategies for practical application in CFD simulations.
+
+In our evaluation, we focused on the maximum absolute error as a measure of loss, finding it to be particularly suited for CFD simulations.
+Many numerical schemes in CFD guarantee a specific accuracy level up to a certain error threshold.
+If the maximum error introduced by compression remains below this threshold, the simulation is likely to retain its accuracy.
+This is in contrast to other metrics, such as the mean squared error, which may overlook the significance of localized errors concentrated in small areas of the simulation.
+
+When comparing thresholding methods, hard thresholding demonstrated superior performance over soft thresholding, delivering higher compression ratios and reduced maximum errors.
+Consequently, future discussions will concentrate on the application of hard thresholding.
+Additionally, our examination of various wavelets revealed significant differences in their properties and impacts.
+The LGT5/3 and CDF9/7 wavelets necessitate grid sizes that are either powers of 2 plus 1 or exact powers of 2, respectively.
+Given that most computational hardware is optimized for grid sizes that are powers of 2, this requirement could notably influence the efficiency of the wavelet compression scheme, in one way or another.
+Furthermore, in one-dimensional cases, both LGT5/3 and CDF9/7 wavelets are designed to preserve edges, a feature that, when applied in multi-dimensional simulations, means that edges (or faces in 3D) can be accessed with one fewer DWT.
+Unfortunately, a similar property could not be achieved with Haar wavelets, highlighting a limitation in their design that could make them less efficient in future implementations that would leverage this property.
+
+The main difference between the LGT5/3 and CDF9/7 wavelets lies in their respective supports.
+The CDF9/7 wavelets have a larger support and assure filtering up to the third order, a feature that the LGT5/3 wavelets, which guarantee filtering up to the first order, do not possess.
+However, this enhanced filtering capability of the CDF9/7 does not necessarily translate into significantly improved compression ratios in real-world applications.
+Moreover, the larger support of the CDF9/7 wavelets diminishes their efficiency in capturing discontinuities.
+Given the prevalence of discontinuities in CFD data, this makes the LGT5/3 wavelets a more fitting choice for our purposes.
+However, it should be acknowledged that specific scenarios could present optimal conditions for the CDF9/7 wavelets (or Haar wavelets).
+
+The significant advantage of adopting the wavelet compression approach lies in its ability to achieve high compression ratios while having a minimal impact on the precision of the data.
+This is especially true in three-dimensional simulations, where compression ratios are anticipated to increase cubically with the grid size (per dimension), while a quadratic growth is expected for two-dimensional simulations.
+Therefore, three-dimensional CFD simulations are expected to benefit from extremely high memory savings through this compression method, offering a promising solution for managing the large volumes of data generated by such simulations.
+
+Nevertheless, the adoption of this compression method is not without its concerns, primarily due to the potential adverse effects of loss introduced by thresholding.
+In the realm of CFD, evaluating the quality of a simulation based solely on the error from a single compression cycle is inadequate.
+This is because the cumulative effect of errors introduced by successive compression cycles can significantly impact subsequent simulation steps, potentially leading to a detrimental feedback loop that undermines the integrity of the entire simulation.
+Consequently, our method necessitates a careful investigation into identifying an optimal threshold value for a given simulation.
+Ideally, this value would as high as possible, given a constraint imposed on the simulation accuracy.
+
+Another aspect warranting careful consideration is the computational cost associated with the compression process.
+Specifically, for DWTs applied in a single dimension, a minimum of $2N$ memory accesses is required, accommodating one read and one write operation for each coefficient.
+With successive applications of DWTs, the initial DWT necessitates $2N$ memory accesses, followed by $N$ accesses for the second DWT, $N/2$ for the third, and so on, cumulatively leading to an asymptotic total of $4N$ memory accesses.
+When DWTs are applied across multiple dimensions, this figure multiplies accordingly.
+For instance, in three-dimensional applications, it is plausible for each coefficient to be accessed up to 12 times, representing a considerable computational demand.
+While strategies to reduce the number of memory accesses in multidimensional scenarios exist, they invariably complicate the data access pattern~\cite{taghavi2003memory,liao2004efficient}.
+This complexity can adversely affect overall system performance, particularly in the context of Graphics Processing Units (GPUs).
+Despite these challenges, the compelling compression ratios achieved through this method justify its utilization, especially when the available memory is significantly less than the demands of the simulation.
+In Chapter~\ref{chapter:wavelets_hpc}, we will explore more streamlined approaches capable of achieving high compression throughput alongside moderate compression ratios.
+Before this, the following chapter (Chapter \ref{chapter:integrate_wavelets}) will detail the application of the wavelet compression scheme to a Saint-Venant simulation and discuss the potential impact of the compression on the simulation.
+
+\begin{pasted}
+xxxxxxx
+
+The use of lossless data compression in the field of high-performance computing has already been explored in several works \cite{astsatryan2020performance,low_latency_LZ4_FPGA}.
+Besides memory saving, the use of data compression can also be motivated by the need to transfer data between the CPU and the GPU efficiently.
+It is possible to find situations where the cost of the data compression/decompression is largely compensated by the acceleration of the data transfers.
+In practice, the compression is achieved through the use of general data compression libraries such as nvCOMP \cite{nvcomp_2020} or zfp \cite{lindstrom2014fixed}.
+
+However, the data handled by LBM (or FD/FV) schemes are subjects to numerical errors generated by the underlying approximation.
+Thus, small additional errors caused by a lossy compression method  are acceptable in the whole algorithm.
+The data also have special structures that can be exploited to design a superior compression algorithm.
+In many physical applications, the computed fields present large regions with smooth variations, separated by sharp discontinuities.
+This is the case, for instance, in the simulation of fluid flows.
+
+xxxxxxxx
+\end{pasted}
+
+
+% %%%%%%%% The following is obsolete, if possible, move paragraphs to the relevant parts of the document.
+
+% In the previous sections, we focused on the proper distribution and optimization of computational fluid dynamics (CFD) simulations.
+% However, efficient compression of the resulting data is equally important in handling the large volumes of information generated.
+% In this section, we introduce a framework for achieving efficient data compression in CFD simulations.
+% Our approach builds upon the foundation of the Discrete Wavelet Transform (DWT), which plays a crucial role in our compression scheme.
+% We first delve into the details of the DWT, exploring its relevance and potential applications in the context of CFD simulations.
+% Subsequently, we present our proposed compression scheme, leveraging the unique properties of wavelets to achieve significant compression ratios while preserving essential information.
+% Finally, we investigate the impact of our compression scheme on various aspects of the simulations, including precision and performance.
+% Through this exploration, we aim to provide researchers and practitioners with an effective solution for managing, analyzing, and storing CFD simulation data more efficiently.
+
+% \section{Discrete Wavelet Transform}
+
+% In the upcoming section, we delve into the Discrete Wavelet Transform (DWT), which serves as the fundamental building block of our compression scheme for Computational Fluid Dynamics (CFD).
+% Our aim is to introduce the principles and workings of the DWT, illustrating its central role in achieving efficient data compression.
+% Initially, we present a comprehensive overview of the DWT, outlining its general principles and discussing its applicability within our work.
+% Subsequently, we provide a detailed explanation of our compression scheme, which integrates the DWT to attain significant compression ratios.
+% Additionally, we analyze the impact of our compression scheme on CFD simulations, considering crucial factors such as compression ratio, precision, and performance.
+% By examining these aspects, we aim to offer valuable insights into the effectiveness and practical implications of our proposed compression scheme within the realm of CFD simulations.
+
+% \subsection{General Overview} \label{sec:dwt_overview}
+
+
+
+% xxx pour la suite, je conseille de se limiter à la compression des fonctions discrètes et ne pas aborder la théorie math des ondelttes qui n'apporte rien xxx
+
+% %The relationship between the wavelet coefficients and the original signal can be expressed as follows:
+% The idea behind the DWT is to decompose a signal into a sum wavelet basis functions:
+
+% \[
+%     x(t) = \sum_{k=0}^{N-1} c_{k} \psi_{k}(t),
+% \]
+
+% where $\psi_{k}$ denotes the wavelet basis functions, $c_{k}$ represents the wavelet coefficients, and $N$ corresponds to the total number of coefficients (equivalent to the number of basis functions).
+% To achieve desirable properties, it is crucial to define appropriate basis functions and establish assumptions about the signal $x$.
+% In the context of our data compression application in Computational Fluid Dynamics (CFD), we focus on highlighting the specific properties that are particularly relevant and valuable for this analysis.
+
+% % \subsubsection{Multiresolution Analysis}
+
+
+% \subsection{Construction of Biorthogonal Wavelets for CFD Simulation Compression}
+
+
+
+
+% In the next section, we show how to extend the presented wavelet transform to multiple dimensions and what additional challenges arise in this case.
+
+% \subsection{Application to multidimensional domains}
+
+
+
+% % Show the two pictures side by side (left right) with their captions
+
+\end{document}

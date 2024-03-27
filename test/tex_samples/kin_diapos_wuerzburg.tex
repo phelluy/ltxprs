@@ -1,0 +1,1492 @@
+%translatex_start_here
+
+
+\documentclass[english]{beamer}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\setcounter{secnumdepth}{3}
+\setcounter{tocdepth}{3}
+\usepackage{textcomp}
+\usepackage{amstext}
+\usepackage{amssymb}
+\usepackage{mathtools}
+\usepackage{graphicx}
+
+\makeatletter
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% LyX specific LaTeX commands.
+%% A simple dot to overcome graphicx limitations
+\newcommand{\lyxdot}{.}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Textclass specific LaTeX commands.
+% this default might be overridden by plain title style
+\newcommand\makebeamertitle{\frame{\maketitle}}%
+% (ERT) argument for the TOC
+\AtBeginDocument{%
+  \let\origtableofcontents=\tableofcontents
+  \def\tableofcontents{\@ifnextchar[{\origtableofcontents}{\gobbletableofcontents}}
+  \def\gobbletableofcontents#1{\origtableofcontents}
+}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% User specified LaTeX commands.
+\AtBeginSection[]{
+  \begin{frame}
+  \vfill
+  \centering
+  \begin{beamercolorbox}[sep=8pt,center,shadow=true,rounded=true]{title}
+    \usebeamerfont{title}\insertsectionhead\par%
+  \end{beamercolorbox}
+  \vfill
+  \end{frame}
+}
+
+\setbeamertemplate{navigation symbols}{}
+
+\addtobeamertemplate{navigation symbols}{}{%
+    \usebeamerfont{footline}%
+    \usebeamercolor[fg]{footline}%
+    \hspace{1em}%
+    \insertframenumber/\inserttotalframenumber
+}
+
+\usepackage{tikz}
+
+\setbeamertemplate{bibliography item}{\insertbiblabel}
+
+\makeatother
+
+\usepackage{babel}
+\makeatletter
+\addto\extrasfrench{%
+   \providecommand{\og}{\leavevmode\flqq~}%
+   \providecommand{\fg}{\ifdim\lastskip>\z@\unskip\fi~\frqq}%
+}
+
+\makeatother
+
+\synctex=1
+
+ \title{Kinetic Approximations}
+% Remove the duplicate \author command
+\author{Philippe Helluy}
+\institute{University of Strasbourg, IRMA CNRS, Inria Tonus}
+\date{Würzburg, February 2024}
+\begin{document}
+\makebeamertitle
+\begin{frame}{Plan}
+
+\tableofcontents{}
+\end{frame}
+
+\section{Convection-Diffusion Equation}
+\begin{frame}{Diffusion Equation}
+
+Consider the diffusion (or heat) equation 
+\[
+w_{t}-\mu w_{xx}=0,
+\]
+where: 
+\begin{itemize}
+\item the unknown $w(x,t)$ is a function of $x \in \mathbb{R}$ and time
+$t$,
+\item $w_{t}=\frac{\partial w}{\partial t}$, $w_{x}=\frac{\partial w}{\partial x}$,
+\end{itemize}
+with an initial condition
+\[
+w(x,0)=w_{0}(x).
+\]
+The parameter $\mu$ is the diffusion coefficient.
+\end{frame}
+%
+\begin{frame}{Fourier Transform}
+
+The Fourier Transform on $\mathbb{R}$ is defined by ($i^2=-1$)
+\[
+\hat{w}(\xi)=\int_{x=-\infty}^{x=+\infty}w(x)\exp(-ix\xi)dx.
+\]
+Convolution is defined by
+\[
+(f*g)(x)=\int_{x=-\infty}^{x=+\infty}f(x-y)g(y)dy.
+\]
+Some properties: 
+\begin{itemize}
+\item $w(x)=\frac{1}{2\pi}\int_{\xi=-\infty}^{\xi=+\infty}\hat{w}(\xi)\exp(+ix\xi)d\xi$
+(Inverse Fourier Transform)
+\item $\int\left|w\right|^{2}=\int\left|\hat{w}\right|^{2}$ (Parseval's equality, the Fourier Transform is an isometry of $L^{2}(\mathbb{R})$)
+\item $(f*g)\hat{\,}=\hat{f}\hat{g}$ (transform of the convolution into a product)
+\end{itemize}
+\end{frame}
+%
+\begin{frame}{Exact Solution}
+
+Fourier Transform in $x$ ($\partial_x \rightarrow i\xi$)
+\[
+\hat{w}_{t}=-\mu\xi^{2}\hat{w}
+\]
+so
+\[
+\hat{w}(\xi,t)=\exp(-\mu\xi^{2}t)\hat{w}_{0}.
+\]
+
+Remarks:
+\begin{itemize}
+\item Energy decreases if $\mu>0$ (increases otherwise)
+\item Convolution in $x$
+\[
+w=E(\cdot,t)*w_{0},\text{ with }E(x,t)=\frac{1}{2\sqrt{\pi\mu t}}\exp(\frac{-x^{2}}{4\mu t}).
+\]
+\item Smoothing effect when $\mu>0$.
+\end{itemize}
+Issue if $\mu<0$. Suppose that the spectrum of $w_{0}$ (the support of $\hat{w}_{0})$ is bounded, included in the interval $[-\phi,\phi]$,
+then
+\[
+\left\Vert w(\cdot,t)\right\Vert _{L^{2}}\leq\exp(\left|\mu\right|\phi^{2}t)\left\Vert w(\cdot,0)\right\Vert _{L^{2}},
+\]
+but this estimate cannot be improved: the solution 'explodes' in time. 
+\end{frame}
+%translatex_split_here
+ %
+\begin{frame}{Convection Equation}
+
+Convection (or transport) equation with velocity $c$
+\[
+w_{t}+cw_{x}=0,\quad w(\cdot,0)=w_{0}(\cdot).
+\]
+Fourier Transform
+\[
+\hat{w}_{t}=-ic\xi\hat{w}.
+\]
+We find
+\[
+\hat{w}(\xi,t)=\exp(-ic\xi t)\hat{w}(\xi,0).
+\]
+Hence (Fourier shift)
+\[
+w(x,t)=w_{0}(x-ct).
+\]
+
+\end{frame}
+
+%
+
+\begin{frame}{Convection-Diffusion}
+
+For the convection-diffusion equation
+\[
+w_{t}+cw_{x}-\mu w_{xx}=0,\quad w(x,0)=w_{0}(x),
+\]
+where $\mu$ is the viscosity coefficient, we find
+\[
+w=E(\cdot,t)*w_{0},\text{ with }E(x,t)=\frac{1}{2\sqrt{\pi\mu t}}\exp(\frac{-(x-ct)^{2}}{4\mu t}).
+\]
+
+$$w(x,t)=\int_{y}E(y,t)w_{0}(x+y)dy,$$
+and
+$$E\geq0,\quad\int_{x}E(x,t)dx=1.$$
+This is a convex combination of values of $w_{0}$.
+
+\end{frame}
+
+%translatexsplithere
+ %
+\begin{frame}{Stability}
+
+From the previous formula, we can deduce:
+\begin{itemize}
+
+\item Maximum principle: if $0\leq w_{0}\leq M$ then $0\leq w(\cdot,t)\leq M,$
+$t>0$.
+
+
+
+\item Decay of energy $\mathcal{E}(t)=\int_{x}w(x,t)^{2}dx$: $\mathcal{E}(t)\leq\mathcal{E}(0)$, $t>0$.
+\end{itemize}
+\end{frame}
+
+
+
+
+\begin{frame}{Upwind scheme}
+
+We consider the transport equation
+\[
+w_{t}+cw_{x}=0,\quad x\in\mathbb{R},\quad t\geq0,
+\]
+with initial condition $w(x,0)=w_{0}(x)$ and $c>0$.
+
+Time step $\tau$, space step $h$. Discretization at points
+$x_{i}=ih$, $t_{n}=n\tau$, $w_{i}^{n}\simeq w(x_{i},t_{n})$. Upwind scheme, $w_{i}^{0}=w(x_{i},0)$ and
+\[
+\frac{w_{i}^{n+1}-w_{i}^{n}}{\tau}+c\frac{w_{i}^{n}-w_{i-1}^{n}}{h}=0.
+\]
+Very natural: information comes from the left. 
+\end{frame}
+%
+
+\begin{frame}{Maximum principle}
+
+We introduce the CFL number $\beta=c\tau/h$. Then:
+\[
+w_{i}^{n+1}=(1-\beta)w_{i}^{n}+\beta w_{i-1}^{n}.
+\]
+Under the condition $\beta\leq1$ we have the discrete maximum principle.
+If for all $i$, $0\leq w_{i}^{0}\leq M$ then for all $i$ and
+$n>0$, $0\leq w_{i}^{n}\leq M$.
+\end{frame}
+
+
+\begin{frame}{Equivalent Equation}
+
+  We can construct a continuous version of the previous scheme. We seek
+  a function $\tilde{w}(x,t)$ (which we still denote $w$) that solves
+  the difference equation
+  \[
+  \frac{w(x,t+\tau)-w(x,t)}{\tau}+c\frac{w(x,t)-w(x-h,t)}{h}=0.
+  \]
+  This solution coincides with the discrete solution at the points $(x,t)=(x_{i},t_{n})$.
+  What does $w$ satisfy formally when $h$ and $\tau$ tend to 0
+  with $c\tau/h=\beta$ fixed?
+  \end{frame}
+%
+\begin{frame}{Energy stability}
+
+Shift operator (notation: $I^{2}=-1)$
+\[
+(\mathcal{D}_{h}w)(x)=w(x-h),\quad(\mathcal{D}_{h}w)^{\wedge}(\xi)=\exp(-Ih\xi)\hat{w}(\xi).
+\]
+The finite difference equation becomes, with $c\tau/h=\beta,$
+\[
+\hat{w}(\xi,t+\tau)=A(\xi,h)\hat{w}(\xi,t),
+\]
+with $A(\xi,h)=(1-\beta+\beta e^{-Ih\xi})$, the amplification coefficient.
+The scheme is stable in $L^{2}$ iff $A$ is in the unit disk
+for all frequencies $\xi$. We retrieve the condition
+\[
+\beta\leq1.
+\]
+
+\end{frame}
+%translatex_split_here
+ %
+%
+\begin{frame}{Using Fourier}
+
+Shift operator (notation: $I^{2}=-1)$
+\[
+(\mathcal{D}_{h}w)(x)=w(x-h),\quad(\mathcal{D}_{h}w)^{\wedge}(\xi)=\exp(-Ih\xi)\hat{w}(\xi).
+\]
+The difference equation becomes, with $c\tau/h=\beta,$
+\[
+\hat{w}(\xi,t+\tau)=A(\xi,\tau)\hat{w}(\xi,t),
+\]
+with $A(\xi,h)=(1-\beta+\beta e^{-Ih\xi})$. So we have
+\[
+\frac{\hat{w}(\xi,t+\tau)-\hat{w}(\xi,t-\tau)}{2\tau}+\frac{1}{2\tau}\left(\frac{1}{A(\xi,-\tau)}-A(\xi,\tau)\right)\hat{w}(\xi,\tau)=0.
+\]
+With a Taylor expansion at $\tau=0$ and inverse Fourier transform, we find
+\[
+w_{t}+cw_{x}-\frac{c}{2}(1-\beta)hw_{xx}=0+O(h^{2}).
+\]
+The upwind scheme introduces a numerical viscosity $\mu=\frac{c}{2}(1-\beta)h.$
+The consistency is therefore of order 1. We recover the CFL stability condition.
+\end{frame}
+%
+\begin{frame}{Remark on the equivalent equation}
+
+The equivalent equation often provides information on the CFL stability, but not always \cite{dhaouadi2021stability}. Example: heat equation
+\[
+w_{t}-w_{xx}=0,
+\]
+discretized by the classical explicit scheme
+\[
+\frac{u(x,t+\tau)-u(x,\tau)}{\tau}+\frac{-u(x-h,\tau)+2u(x,\tau)-u(x+h,\tau)}{h^{2}}=0.
+\]
+The equivalent equation is
+\[
+u_{t}-u_{xx}-\frac{1}{12}(1-6\beta)h^{2}u_{xxxx}=O(h^{4}),
+\]
+which is stable under the condition $\beta>1/6$ while the scheme is stable if $\beta<1/2$!
+\end{frame}
+%
+%translatex_split_here
+ \section{Hyperbolic Systems}
+\begin{frame}{Conservation Laws}
+
+First-order conservation laws system (CLS). Notation convention:  vectors and matrices with
+capital letters, scalars with lowercase letters.
+\[
+W_{t}+\sum_{i=1}^{d}\partial_{i}Q^{i}(W)=0,
+\]
+
+\begin{itemize}
+\item Unknown vector: $W(X,t)\in\mathbb{R}^{m}$, $X=(x^{1},\ldots,x^{d})\in\mathbb{R}^{d}$ space variable, $t\geq0,$ time variable;
+\item $\partial_{i}=\frac{\partial}{\partial x^{i}}$. If $d=1$ we note
+$w=W$, $x^{1}=x$, $Q^{1}(W)=q(w)$ and $\partial_{1}Q^{1}(W)=q(w)_{x}$.
+
+\item $Q^{i}(W)$: flux in the direction $i$. If $Q^{i}(W,\nabla_{X}W)$: second-order system...
+\end{itemize}
+For a spatial vector $N\in\mathbb{R}^{d}$ we can also define
+the flux in the direction $N$ by
+\[
+Q(W,N)=\sum_{i=1}^{d}Q^{i}(W)\cdot N_{i}(W)=Q(W)\cdot N(W).
+\]
+
+\end{frame}
+%
+\begin{frame}{Conservation ?}
+
+Integrate the CLS over a space domain $\Omega$ and note the "mass"
+contained in this domain at time $t$
+\[
+M(t)=\int_{X\in\Omega}W(X,t).
+\]
+The Stokes formula leads to
+\[
+\frac{d}{dt}M(t)=\int_{X\in\partial\Omega}Q(W(X,t),N(X)),
+\]
+where $N(X)$ is the outward normal vector to $\Omega$ at point $X$
+on the boundary $\partial\Omega$.
+
+In other words, the variation of the mass in the domain over time is given by
+the integral of the flux on the boundary.
+
+\end{frame}
+%
+
+\begin{frame}{Hyperbolicity}
+
+The CLS is hyperbolic if for all directions $N$ and all vector
+$W$ the Jacobian matrix of the flux
+\[
+A(W,N)=D_{W}Q(W,N)
+\]
+is diagonalizable with real eigenvalues. We note $\lambda_{i}(W,N)$
+the eigenvalues (often arranged in ascending order) and $R_{i}(W)$
+the corresponding eigenvectors.
+
+Note that in the scalar case $m=1$ the system is necessarily hyperbolic.
+\end{frame}
+%
+%translatex_split_here
+
+\begin{frame}{Hyperbolicity?}
+
+Consider the linear CLS $W=(a,b)^{\intercal}$
+\[
+\partial_{t}\left(\begin{array}{c}
+a\\
+b
+\end{array}\right)+\partial_{x}\left(\left(\begin{array}{cc}
+0 & \epsilon\\
+1 & 0
+\end{array}\right)\left(\begin{array}{c}
+a\\
+b
+\end{array}\right)\right)=0,\quad\epsilon=\pm1.
+\]
+In Fourier space ($I^2=-1$)
+\[
+IM(\xi,\tau)\left(\begin{array}{c}
+\hat{a}(\xi,\tau)\\
+\hat{b}(\xi,\tau)
+\end{array}\right)=0,\quad M(\xi,\tau)=\left(\begin{array}{cc}
+\tau & \epsilon\xi\\
+\xi & \tau
+\end{array}\right).
+\]
+There are non-trivial solutions if and only if $\det M(\xi,\tau)=0$ which gives
+\[
+\tau{{}^2}-\epsilon\xi^{2}=0.
+\]
+If $\epsilon=1$, this resembles the equation of a hyperbola and the system is said to be hyperbolic. If $\epsilon=-1$, the system is said to be elliptic.
+\end{frame}
+%
+\begin{frame}{Examples: transport, Burgers}
+
+Consider $d=1$, $m=1$, and $q(w)=cw$. This gives the 1D transport equation
+\[
+w_{t}+cw_{x}=0.
+\]
+The eigenvalue $\lambda_{1}=c$.
+
+The Burgers equation is obtained by choosing $q(w)=w^{2}/2$. This yields
+\[
+w_{t}+\left(\frac{w^{2}}{2}\right)_{x}=0.
+\]
+For smooth solutions, the Burgers equation can also be written
+\[
+w_{t}+ww_{x}=0.
+\]
+Here, 
+\[
+\lambda_{1}(w)=w.
+\]
+In the Burgers equation, the wave speed is also the unknown conservative quantity $w$.
+\end{frame}
+%
+
+%translatex_split_here
+ %
+\begin{frame}{Example: Traffic Flow}
+
+Vehicle density on a highway lane $w(x,t)\geq0$. Vehicle speed $v=v(w)$. Conservation law of vehicles
+\[
+w_{t}+(v(w)w)_{x}=0.
+\]
+The flux is therefore
+\[
+q(w)=wv(w).
+\]
+Vehicle driver behavior law. For a maximum density $w=w_{
+m ax}$, the speed $v(w_{
+m ax})=0$. For a very fluid traffic, drivers travel at the maximum allowed speed $v(0)=v_{
+m ax}$. Therefore, we can take
+\[
+v(w)=(1-\frac{w}{w_{
+m ax}})v_{
+m ax}.
+\]
+Here the wave speed is therefore
+\[
+\lambda(w)=q'(w)=(1-\frac{2w}{w_{
+m ax}})v_{
+m ax}\in\left[-v_{
+m ax},v_{
+m ax}\right].
+\]
+
+\end{frame}
+
+%
+\begin{frame}{Other Examples}
+\begin{itemize}
+\item Saint-Venant Model (or shallow water): $m=2$, $d=1$, water height $h(x,t)$, mean horizontal  velocity $u(x,t)$, gravity $g=9.81$m/s².
+$$
+W=\left(\begin{array}{c}
+  h\\
+  hu
+  \end{array}\right),\quad Q^{1}(W)=\left(\begin{array}{c}
+  hu\\
+  hu^{2}+gh^{2}/2
+  \end{array}\right),
+$$
+$$
+\partial_{t}W+\partial_{x}Q^1(W)=0.
+$$
+\item Compressible Gas;
+\item Maxwell's Equations;
+\item Multiphase Fluid;
+\item MHD Equations;
+\item \textsl{etc.}
+\end{itemize}
+\end{frame}
+%
+\begin{frame}{Method of Characteristics}
+
+Consider a scalar 1D conservation law ($m=1$, $d=1$)
+\[
+w_{t}+q(w)_{x}=0.
+\]
+Characteristic curve: parameterized curve $t	\mapsto(x(t),t)$ in the $(x,t)$ plane along which $w$ is constant
+\[
+\frac{d}{dt}w(x(t),t)=0.
+\]
+We find that $x'(t)=q'(w(x(t),t)=q'(w(x(0),0)$ is constant. The characteristics are therefore straight lines. This allows to compute the solutions (strong solutions).
+\end{frame}
+%translatex_split_here
+ %
+\begin{frame}{Critical Time}
+\begin{itemize}
+\item Transport: if $q(w)=cw$ then $x(t)=ct+x_{0}.$ Therefore $w(x,t)=w(x(0),0)=w(x-ct,0).$
+\item Burgers: if $q(w)=w^{2}/2$ then $x(t)=w(x_{0},0)t+x_{0}$. If the initial condition is decreasing and $q$ convex, one can see that the characteristics intersect while transporting different values of $w$. The strong solution ceases to exist after a certain time that can be calculated as:
+\[
+t=\frac{-1}{\inf_{x}q'(w_{0}(x))}.
+\]
+The concept of a strong solution is not sufficient. It will be necessary to generalize.
+\end{itemize}
+\end{frame}
+%
+\begin{frame}{Hyperbolicity and Transport}
+
+Hyperbolicity is a necessary condition for stability. Example: a one-dimensional ($d=1$) linear CLS with constant coefficients:
+\[
+W_{t}+Q(W)_{x}=0,\quad Q(W)=AW.
+\]
+If $A$ is diagonalizable with real eigenvalues
+\[
+\text{diag}(\lambda_{1},\ldots,\lambda_{m})=\Lambda=R^{-1}AR,
+\]
+where the columns of $R$ are the eigenvectors $R_{i}$. Positing $W=PY$, we have
+\[
+Y_{t}+\Lambda Y_{x}=0
+\]
+and each component $Y^{i}$ of $Y$ is a solution to a transport equation with velocity $\lambda_{i}$. The eigenvalues can be interpreted as wave speeds.
+\end{frame}
+%
+\begin{frame}{Hyperbolicity and Stability}
+
+If an eigenvalue $\lambda_{i}$ is not real, that is $\lambda_{i}=a+Ib$, $b\neq0$. $y=Y^{i}$ is a solution to the transport equation
+\[
+y_{t}+(a+Ib)y_{x}=0.
+\]
+In Fourier space:
+\[
+\hat{y}_{t}+(a+Ib)I\xi\hat{y}=0.
+\]
+This implies that
+\[
+\hat{y}(\xi,t)=e^{-Ia\xi t}e^{b\xi t}\hat{y}(\xi,0).
+\]
+High-frequency modes are exponentially unstable...
+\end{frame}
+%
+%translatex_split_here
+
+\begin{frame}{Weak Solution}
+
+Definition: $W(X,t)$ is a weak solution of $W_{t}+\nabla_{X}\cdot Q(W)=0,$
+$W(X,0)=W_{0}(X)$ if for any regular test function $\varphi(X,t)$ with bounded support,
+\[
+\int_{X,t\geq0}\left(W\varphi_{t}+Q(W)\cdot\nabla_{X}\varphi\right)=\int_{X}W_{0}\varphi(\cdot,0).
+\]
+
+By integration by parts: strong $\Rightarrow$ weak and weak
++ regular $\Rightarrow$ strong.
+
+What happens in the weak + discontinuous case?
+\end{frame}
+%
+\begin{frame}{Rankine-Hugoniot}
+
+Weak solution with discontinuity on a surface $\Sigma$ of the space-time
+(``shock''). Normal vector $(N,n_{t})$ to this surface, oriented
+from side $L$ to side $R$. We note $[a]=a_{R}-a_{L}$ the jump
+of the quantity $a$ across the discontinuity.
+
+Rankine-Hugoniot relations:
+\[
+n_{t}[W]+N\cdot[Q(W)]=0.
+\]
+If $N$ is a unit spatial vector then $n_{t}=-\sigma$ where
+$\sigma$ is the normal speed of the discontinuity. We find
+\[
+\sigma[W]=N\cdot[Q(W)].
+\]
+ Caution: some calculations are no longer valid for weak solutions.
+For example, if $w$ is a weak solution of $w_{t}+(w^{2}/2)_{x}=0$,
+$w$ is not necessarily a weak solution of $(w^{2}/2)_{t}+(w^{3}/3)_{x}=0.$
+\end{frame}
+%
+\begin{frame}{Loss of Uniqueness}
+
+There is no uniqueness of weak solutions for the Cauchy problem.
+Example (with Burgers $q(w)=w^{2}/2$):
+\[
+w_{t}+q(w)_{x}=0,
+\]
+\[
+w(x,0)=\begin{cases}
+0 & \text{if }x<0,\\
+1 & \text{otherwise.}
+\end{cases}
+\]
+At least two weak solutions:
+\[
+w_{1}(x,t)=\begin{cases}
+0 & \text{if }x<t/2,\\
+1 & \text{otherwise.}
+\end{cases}
+\]
+\[
+w_{2}(x,t)=\begin{cases}
+0 & \text{if }x<0,\\
+1 & \text{if }x>t,\\
+x/t & \text{otherwise.}
+\end{cases}
+\]
+We only keep the second solution (as it is less ``discontinuous'').
+\end{frame}
+%
+%translatex_split_here
+
+\begin{frame}{Lax Characteristic Criterion}
+
+There is no need to introduce a shock when the characteristics do not intersect. A shock of velocity $\sigma$ satisfies the Lax characteristic criterion ($m=1$, $d=1$) if
+\[
+q'(w_{L})>\sigma>q'(w_{R}).
+\]
+In the case $m>1$, $d>1$, the Lax characteristic criterion becomes:
+there exists an index $i$ such that
+\[
+\lambda_{i}(w_{L},N)>\sigma>\lambda_{i}(w_{R},N).
+\]
+Here, $N$ is the normal vector to the discontinuity surface, unitary, and oriented from $L$ to $R$.
+\end{frame}
+%
+\begin{frame}{Entropy}
+
+The characteristic criterion is geometric. Not practical for numerics.
+We seek an integral criterion.
+
+An entropy $s(W)$ associated with the entropy flux $G(W)$ is a function
+that satisfies an additional conservation law
+\[
+s(W)_{t}+\sum_{i}\partial_{i}G^{i}(W)=0
+\]
+when $W$ is a strong solution.
+
+Then, setting $A^{i}(W)=D_{W}Q^{i}(W)$,
+\[
+D_{W}s(W)A^{i}(W)=D_{W}G^{i}(W).
+\]
+For $m=1$ any function is an entropy. It is more complicated if $m>1$.
+\end{frame}
+%
+\begin{frame}{Practical Calculation}
+
+As we work with strong solutions, we can change variables.
+If $W=W(Y)$
+\[
+D_{Y}WY_{t}+A^{i}D_{Y}W\partial_{i}Y=0,\quad A^{i}=D_{W}Q^{i},
+\]
+which implies
+\[
+Y_{t}+B^{i}(Y)\partial_{i}Y=0,\quad B^{i}=P^{-1}A^{i}P,\quad P=D_{Y}W.
+\]
+With $s(W)=u(Y)$ and $G^{i}(W)=H^{i}(Y)$, we have
+\[
+D_{Y}uB^{i}=D_{Y}H^{i}.
+\]
+
+\end{frame}
+%
+
+
+
+\begin{frame}{Example: Saint-Venant}
+
+Saint-Venant equations, $m=2$, $d=1$, water height $h$, velocity $u$, gravity $g=9.81$m/s².
+\[
+W=\begin{pmatrix}
+h\\
+hu
+\end{pmatrix},\quad Q(W)=\begin{pmatrix}
+hu\\
+hu^{2}+gh^{2}/2
+\end{pmatrix}.
+\]
+By performing calculations in variables $Y=(h,u)^{\top}$, we find (non-unique solution)
+\[
+s(W)=h\frac{u^{2}}{2}+\frac{gh^{2}}{2},\quad G(W)=h\frac{u^{3}}{2}+ugh^{2}.
+\]
+
+\end{frame}
+%
+\begin{frame}{Lax Entropy}
+
+An entropy $s(W)$ is a Lax entropy if $s$ is strictly convex with respect to $W$. A weak solution is a Lax solution if, in the weak sense,
+\[
+s(W)_{t}+\partial_{i}G^{i}(W)\leq0.
+\]
+Lax entropy criterion for shocks
+\[
+n_{t}[s(W)]+N\cdot[G(W)]\leq0,
+\]
+or with shock velocity $\sigma$
+\[
+\sigma[s(W)]\geq N\cdot[G(W)].
+\]
+Often, but not always, Lax entropy criterion $\Leftrightarrow$ Lax characteristic criterion \cite{lax72}.
+\end{frame}
+%
+\begin{frame}{Legendre Transform}
+
+An important tool: the Legendre transformation. Consider a function $s$ from $\mathcal{R}\subset\mathbb{R}^{m}$ to $\mathbb{R}$. Assume that the gradient of $s$, $\nabla_W s(W)$ from $\mathcal{R}$ to $\mathcal{S}=\nabla s(\mathcal{C})$ is invertible.
+
+This is the case if $s$ is strictly convex, for example. The Legendre transformation $s^{*}$ of $s$ is defined for $V\in\mathcal{S}$ by
+\[
+s^{\ast}(V)=V\cdot W-s(W),\quad V=\nabla s(W).
+\]
+
+Examples: $s(x)=x^{2}/2$, $s(x)=x^{3}/3$, $s(x,y)=y^{2}/2/x+x^{2}/2$.
+
+When $s$ is strictly convex, the Legendre transformation coincides with the Fenchel transformation
+\[
+s^{*}(V)=\sup_{W}\left(V\cdot W-s(W)\right).
+\]
+In the general case, $\nabla s(W)$ is multivalued, it requires differential geometry... 
+\end{frame}
+%
+\begin{frame}{Useful General Properties}
+\begin{itemize}
+\item $V=\nabla s(W)\Leftrightarrow W=\nabla s^{*}(V)$.
+\item $s^{**}=s$
+%\item  $s$ convex $\Leftrightarrow s^{*}$ convex.
+\item $ds(W)=\nabla s(W)\cdot dW=V\cdot dW$. And $ds^{*}(V)=\nabla s^{*}(V)\cdot dV=W\cdot dV$. Exchange of variables and derivatives. Justifies the term conjugate or dual function. Useful in thermodynamics.
+\end{itemize}
+\end{frame}
+%
+
+%translatex_split_here
+ \begin{frame}{Convex Case}
+
+If $s$ is strictly convex.
+\begin{itemize}
+\item $s^{*}$ is strictly convex
+\item the Hessian matrices of $s$ and $s^{*}$ are symmetric and positive definite.
+\item The inf-convolution
+$$
+s_{1}\square s_{2}(W)\coloneqq \inf_{W=W_{1}+W_{2}}s_{1}(W_{1})+s_{2}(W_{2})
+$$
+is changed into an addition:
+$$
+s^{*}(V)=s_{1}^{*}(V)+s_{2}^{*}(V).
+$$
+\end{itemize}
+\end{frame}
+%
+\begin{frame}{Duality and Lax Entropy}
+
+If $s$ is a Lax entropy, we can calculate its Legendre transform $s^{*}$. Entropic variables:
+\[
+V=\nabla s(W)\Leftrightarrow W=\nabla s^{*}(V).
+\]
+We then define the dual entropy flux:
+\[
+G^{i,\star}(V)=V\cdot Q^{i}(W)-G^{i}(W).
+\]
+(Note: this is not a Legendre transformation, hence the symbol
+``$\star$'' is different from ``$\ast$''). Property:
+\[
+\nabla G^{i,\star}(V)=Q^{i}(W).
+\]
+In other words: the gradient of the dual entropy is the conservative variables. The gradient of the dual entropy flux, is the flux of the CLS.
+
+The scalar functions $(s^{*},G^{i,\star})$ contain all the information on the CLS. It can be seen that the existence of a Lax entropy is a strong property: one reconstructs $d+1$ vectorial functions from only $d+1$ scalar functions!
+\end{frame}
+%
+\begin{frame}{Mock's Theorem}
+\begin{theorem}
+A system is symmetrizable if and only if it admits a Lax entropy \cite{mock80,mazet89,harten98}.
+\end{theorem}
+
+\begin{proof}
+$\Leftarrow$: $\partial_{t}W+\partial_{i}Q^{i}(W)=0$ can also be written as $\partial_{t}\nabla s^{*}(V)+\partial_{i}\nabla G^{i,\star}(V)=0.$ Therefore,
+\[
+D^{2}s^{*}(V)\partial_{t}V+D^{2}G^{i,\star}(V)\partial_{i}V=0.
+\]
+The Hessian matrices are symmetric and $s^{*}$ is strictly convex, therefore $D^{2}s^{*}(V)$ is positive definite.
+
+$\Rightarrow$: if there exists a change of variables that symmetrizes the CLS, then $\partial_{t}W(V)+\partial_{i}W(V)Q^{i}(W)=0$ with $W(V)$ symmetric and positive definite and $W(V)Q^{i}(W)$ symmetric. By Poincaré lemma, these are the Hessians of $s^{*}$ and $G^{i,\star}.$ Thus, $s=s^{**}$ and $G^{i}=G^{i,\star\star}$. 
+\end{proof}
+
+\end{frame}
+%translatex_split_here
+ \begin{frame}{Example: Saint-Venant}
+
+Calculate $s$, $G^{i}$, $s^{*}$, $G^{i,\star}$. See \cite{guillon2023stability}
+\end{frame}
+%
+\begin{frame}{Vanishing Viscosity}
+
+Entropic solutions are limits of viscous solutions:
+\[
+\partial_{t}W^{\epsilon}+\partial_{x}Q(W^{\epsilon})-\epsilon\partial_{xx}W^{\epsilon}=0.
+\]
+The viscosity $\epsilon>0$ ensures that $W^{\epsilon}$ is regular.
+It is assumed that $W^{\epsilon}\to W$ (in a suitable sense). By integration by parts and passing to the limit, $W$ is a weak solution. Multiply by $ Ds(W^{\epsilon})$:
+\[
+\partial_{t}s(W^{\epsilon})+\partial_{x}g(W^{\epsilon})-\epsilon \nabla s\partial_{xx}W^{\epsilon}=0,
+\]
+or, since $ DsDQ=Dg$,
+\[
+\partial_{t}s(W^{\epsilon})+\partial_{x}g(W^{\epsilon})=\epsilon Ds\partial_{xx}W^{\epsilon}=\epsilon\partial_{x}Ds\partial_{x}W-\epsilon D^{2}s\partial_{x}W\cdot\partial_{x}W,
+\]
+As $s$ is convex $D^{2}s\partial_{x}W\cdot\partial_{x}W\geq0$.
+Then we multiply by a test function $\varphi\geq0$ and we integrate by parts
+\[
+\int_{x,t}\left(-s(W^{\epsilon})\partial_{t}\varphi-g(W^{\epsilon})\partial_{x}\varphi\right)\leq\epsilon\int_{x,t}W^{\epsilon}\partial_{x}Ds\partial_{x}\varphi.
+\]
+Thus, when $\epsilon\to0$, we have in the weak sense
+\[
+\partial_{t}s(W)+\partial_{x}g(W)\leq0.
+\]
+
+\end{frame}
+%translatex_split_here
+ \section{Kinetic Approximation}
+\begin{frame}{Kinetic Representation}
+
+System of Conservation Laws (CSL)
+\begin{equation}
+\partial_{t}W+\partial_{i}Q^{i}(W)=0.\label{eq:CLS}
+\end{equation}
+Kinetic vectors $F_{k}$
+\[
+W=\sum_{k=1}^{n_{v}}F_{k}.
+\]
+Global kinetic vector $F$, made of all the $F_{k}$ stacked together:
+\[
+F=(F_{1}^\intercal,\ldots,F_{n_{nv}}^\intercal)^\intercal.
+\]
+Or
+\[
+W=PF,
+\]
+with $P$ a constant matrix, called the \textbf{projection matrix}.
+\end{frame}
+%
+\begin{frame}{BGK Model}
+
+Kinetic velocities $V_{k}$ \textbf{constants}, $k=1\ldots n_{v}$.
+Transport with BGK-type relaxation
+\[
+\partial_{t}F_{k}+V_{k}\cdot\nabla F_{k}=\frac{1}{\varepsilon}(F_{k}^{eq}-F_{k}),\quad k=1\ldots n_{v}.
+\]
+Kinetic equilibrium $F_{k}^{eq}=F_{k}^{eq}(W)$.
+
+Noting $1_{m}$ the identity matrix of size $m	\times m$ and $V^{i}$
+the diagonal matrices
+\[
+V^{i}=\left(\begin{array}{ccc}
+V_{1}^{i}1_{m}\\
+ & \ddots\\
+ &  & V_{n_{v}}^{i}1_{m}
+\end{array}\right),
+\]
+the BGK system can also be written in the full vector form
+\[
+\partial_{t}F+\sum_{i=1}^{d}\partial_{i}\left(V^{i}F\right)=\frac{1}{\varepsilon}(F^{\text{eq}}(W)-F).
+\]
+
+\end{frame}
+%
+\begin{frame}{Consistency}
+
+As $\varepsilon\to0$, we expect $F_{k}\simeq F_{k}^{eq}$.
+The kinetic system is therefore an approximation of the CLS (\ref{eq:CLS})
+if
+\begin{equation}
+W=\sum_{k}F_{k}^{\text{eq}}(W),\quad Q^{i}(W)=\sum_{k=1}^{n_{v}}V_{k}^{i}F_{k}^{\text{eq}}(W),\label{eq:algebraic_consistence}
+\end{equation}
+
+\end{frame}
+%translatex_split_here
+ %
+\begin{frame}{Kinetic Scheme}
+
+BGK relaxation: nonlinear coupling between all kinetic vectors $F_{k}$. To decouple, a decomposition scheme (\emph{splitting}) is used. Each time step $\Delta t$ is divided into:
+\begin{itemize}
+\item Transport: computation of $F_{k}(\cdot,t{{}^-})$ from $F_{k}(\cdot,t-\Delta t^{+})$ by solving
+\[
+\partial_{t}F+\sum_{i=1}^{d}\partial_{i}\left(V^{i}F\right)=0.
+\]
+\item Get the conservative variables
+\[
+W(\cdot,t)=\sum_{k}F_{k}(\cdot,t^{-}).
+\]
+\item Relaxation: computation of $F_{k}(\cdot,t^{+})$
+\[
+F_{k}(\cdot,t^{+})=\omega F_{k}^{eq}(W(\cdot,t))+(1-\omega)F_{k}(\cdot,t^{-}).
+\]
+\end{itemize}
+Note: $\omega\in[1,2]$ is the relaxation parameter. First-order scheme if $\omega=1$, second-order scheme if $\omega=2$ (over-relaxation). $W$ is continuous in time, but not $F_{k}$.
+\end{frame}
+%
+\begin{frame}{Kinetic Entropy}
+
+A kinetic Lax-Mock theory can be developed. Suppose we find functions $s_{k}^{*}(V)$ such that
+\[
+\sum_{k=1}^{n_{v}}s_{k}^{*}=s^{*},\quad\sum_{k}V_{k}^{i}s_{k}^{*}=G^{i,\star}.
+\]
+Let
+\[
+F_{k}^{eq}(W(V))=\nabla_{V}s_{k}^{*}(V).
+\]
+Then, by taking the gradient:
+\begin{itemize}
+\item $\sum_{k}F_{k}^{eq}=\nabla_{V}s^{*}=W$, 
+\item $\sum_{k}V_{k}^{i}F_{k}^{eq}=\nabla_{V}G^{i,\star}=Q^{i}$.
+\end{itemize}
+Moreover, if the $s_{k}^{*}$ are convex, the equilibrium is also a minimum of the kinetic entropy:
+\[
+s(W)=\min_{W=\sum_{k}F_{k}}\sum_{k}s_{k}(F_{k})=\sum_{k}s_{k}(F_{k}^{eq}).
+\]
+\end{frame}
+%
+\begin{frame}{Entropic Stability}
+
+It then becomes easy to prove the entropic stability of the kinetic scheme. The total entropy ($x$ is assumed to be in an infinite or periodic domain)
+\[
+\mathcal{S}(t)=\int_{x}\sum_{k}s_{k}(F_{k})
+\]
+is conserved during the transport step. It is sufficient to show that
+\[
+\sum_{k}s_{k}(F_{k}(\cdot,t^{+}))\leq\sum_{k}s_{k}(F_{k}(\cdot,t^{-})).
+\]
+This is the case (proof) when $\omega=1$ and also (diagram) for $\omega\simeq2$.
+\end{frame}
+%
+\begin{frame}{Sub-characteristic Condition}
+
+The above proof works as long as the $s_{k}$ are convex, which is equivalent to $s_{k}^{*}$ being convex. Taking the case $d=1$ and $n_{v}=2$, we have
+\[
+s_{1,2}^{*}=\frac{s^{*}}{2}\pm\frac{g^{\star}}{2\lambda}.
+\]
+Since $s^{*}$ is strictly convex, if $\lambda$ is large enough, we expect $s_{k}^{*}$ to also be strictly convex, at least locally. The condition of $s_{k}^{*}$ being strictly convex leads to the sub-characteristic condition. Examples: transport, Burgers, Saint-Venant. 
+\end{frame}
+%
+%translatex_split_here
+
+\begin{frame}{Approximate Flux}
+
+Another way to study stability: equivalent equation. The projection matrix $P$ is a matrix with $m$ rows and $mn_{v}$ columns. It is extended to an invertible matrix
+\[
+M=\left(\begin{array}{c}
+P\\
+R
+\end{array}\right),
+\]
+called the moment matrix, such that
+\[
+\left(\begin{array}{c}
+W\\
+Z
+\end{array}\right)=MF.
+\]
+The vector $Z=RF$ is called the ``approximate flux''. The ``flux error'' is also defined as
+\[
+Y=R(F-F^{eq}).
+\]
+It is enlightening to find the PDE satisfied by the couple $(W,Y)$.
+\end{frame}
+%
+\begin{frame}{Equivalent PDE Algorithm}
+
+The kinetic scheme is a functional operator that computes $F(\cdot,t+\Delta t^{+})$ from $F(\cdot,t^{+}).$ With the previous change of variables, we have thus a well-defined operator $\mathcal{M}(\Delta t),$ such that
+\[
+\left(\begin{array}{c}
+W\\
+Y
+\end{array}\right)(\cdot,t+\Delta t^{+})=\mathcal{M}(\Delta t)\left(\begin{array}{c}
+W\\
+Y
+\end{array}\right)(\cdot,t^{+}).
+\]
+To find the equivalent PDE, we perform a Taylor expansion in $\Delta t$ of
+\[
+\frac{\mathcal{M}(\Delta t/2)-\mathcal{M}(-\Delta t/2)}{\Delta t}\left(\begin{array}{c}
+W\\
+Y
+\end{array}\right)=\partial_{t}\left(\begin{array}{c}
+W\\
+Y
+\end{array}\right)+O(\Delta t^{2}).
+\]
+This expansion can be automated with Maple or SymPy for instance.
+\end{frame}
+%
+\begin{frame}{Flux Error Oscillations}
+
+In the set of variables $(W,Y)$, the relaxation step
+\[
+F_{k}(\cdot,t^{+})=\omega F_{k}^{eq}(W(\cdot,t))+(1-\omega)F_{k}(\cdot,t^{-}),
+\]
+becomes simply
+\[
+\left(\begin{array}{c}
+W\\
+Y
+\end{array}\right)(\cdot,t^{+})=\left(\begin{array}{c}
+W\\
+(1-\omega)Y
+\end{array}\right)(\cdot,t^{-}).
+\]
+In particular, if $\omega=2$, the flux error $Y$ is changed to $-Y$. To remove this rapid oscillation of frequency $1/\Delta t$, we can replace $\mathcal{M}(\Delta t)$  by $\mathcal{M}(\Delta t/2)\circ\mathcal{M}(\Delta t/2)$ in the analysis.
+\end{frame}
+%
+\begin{frame}{Form of the Equivalent PDE}
+
+The operator $\mathcal{M}$ is composed of shifts and nonlinear relaxations. In the asymptotic development, the shifts produce partial derivatives. The result is a system of nonlinear PDEs of the form
+\[
+\partial_{t}\left(\begin{array}{c}
+W\\
+Y
+\end{array}\right)+\frac{r(\omega)}{\Delta t}\left(\begin{array}{c}
+0\\
+Y
+\end{array}\right)+\sum_{i=1}^{d}A^{i}\partial_{i}\left(\begin{array}{c}
+W\\
+Y
+\end{array}\right)
+\]
+\begin{equation}
++\Delta t\sum_{1\leq i,j\leq d}B^{i,j}\partial_{i,j}\left(\begin{array}{c}
+W\\
+Y
+\end{array}\right)=O(\Delta t^{2}).\label{eq:forme_EDP_eq}
+\end{equation}
+
+\end{frame}
+%
+%translatex_split_here
+
+
+%translatex_split_here
+ \section{Examples}
+\begin{frame}{Jin-Xin Model \cite{jin1995relaxation}}
+
+We apply the previous theory to the Xin-Jin model for $d=1$,
+$n_{v}=2$,
+\[
+V^{1}=\left(\begin{array}{cc}
+\lambda & 0\\
+0 & -\lambda
+\end{array}\right),\quad F=\left(\begin{array}{c}
+F^{+}\\
+F^{-}
+\end{array}\right),\quad M=\left(\begin{array}{cc}
+1 & 1\\
+\lambda & -\lambda
+\end{array}\right).
+\]
+\[
+F^{eq}=\left(\begin{array}{c}
+\frac{W}{2}+\frac{Q(W)}{2\lambda}\\
+\frac{W}{2}-\frac{Q(W)}{2\lambda}
+\end{array}\right),\quad F=\left(\begin{array}{c}
+\frac{W}{2}+\frac{Q(W)}{2\lambda}+\frac{Y}{2\lambda}\\
+\frac{W}{2}-\frac{Q(W)}{2\lambda}-\frac{Y}{2\lambda}
+\end{array}\right).
+\]
+
+\end{frame}
+%
+\begin{frame}{Jin-Xin, Equivalent System}
+
+With $\delta=\omega-1$, we find
+\[
+O(\Delta t^{2})=\partial_{t}\left(\begin{array}{c}
+W\\
+Y
+\end{array}\right)-\frac{1}{\Delta t}\frac{\delta^{4}-1}{2\delta^{2}}\left(\begin{array}{c}
+0\\
+Y
+\end{array}\right)
+\]
+\[
++\left(\begin{array}{cc}
+Q'(W) & \gamma_{1}\\
+\gamma_{1}(\lambda^{2}-Q'(W)^{2}) & -\gamma_{2}Q'(W)
+\end{array}\right)\partial_{x}\left(\begin{array}{c}
+W\\
+Y
+\end{array}\right)
+\]
+\[
+\Delta t\frac{\delta^{2}-1}{32\delta^{2}}\left(\begin{array}{cc}
+(\lambda^{2}-v^{2})(-\delta^{2}+4\delta-1) & 3(\delta^{2}+1)Q'W)\\
+3(\delta^{2}+1)(\lambda^{2}-v^{2})Q'W) & \gamma_{3}
+\end{array}\right)\partial_{xx}\left(\begin{array}{c}
+W\\
+Y
+\end{array}\right).
+\]
+\[
+\gamma_{1}=\frac{\left(\delta-1\right)^{2}\left(\delta^{2}+1\right)}{\delta^{2}},\quad\gamma_{2}=\frac{\delta^{4}+1}{2\delta^{2}}
+\]
+\[
+\gamma_{3}=-(5Q'(W)^{2}+3\lambda{{}^2})(\delta^{2}+1)+4(\lambda^{2}-Q'(W)^{2})\delta
+\]
+
+\end{frame}
+%
+\begin{frame}{Jin-Xin, Equivalent Equation}
+
+Under the assumption that $Y=O(\Delta t)$, we obtain, to order 2 in
+$\Delta t$:
+\[
+\partial_{t}W+\partial_{x}Q(W)=\frac{1}{2}(\frac{1}{\omega}-\frac{1}{2})\Delta t\partial_{x}(\lambda^{2}-Q'(W)^{2})\partial_{x}W.
+\]
+
+\end{frame}
+%
+\begin{frame}{Jin-Xin Stability}
+\begin{itemize}
+\item The terms of the first order of the equivalent system are symmetrizable (thus hyperbolic) if 
+\[
+\lambda>\left|Q'(W)\right|.
+\]
+\item Under the same condition, the equivalent equation is stable.
+\end{itemize}
+In this case, the two stability conditions are equivalent.
+\end{frame}
+%
+%translatex_split_here
+
+
+\begin{frame}{D2Q4 Model \cite{guillon2023stability,aregba2000discrete}}
+
+We apply the previous theory to the D2Q4 model for transport
+($W=w$, $Q(W)\cdot N=aN{{}^1}+bN^{2}$), $d=2$, $n_{v}=4$,
+\[
+V^{1}=\left(\begin{array}{cccc}
+\lambda\\
+ & -\lambda\\
+ &  & 0\\
+ &  &  & 0
+\end{array}\right),\quad V^{2}=\left(\begin{array}{cccc}
+0\\
+ & 0\\
+ &  & \lambda\\
+ &  &  & -\lambda
+\end{array}\right),
+\]
+\[
+  \quad M=\left(\begin{array}{cccc}
+    1 & 1 & 1 & 1\\
+    \lambda & -\lambda & 0 & 0\\
+    0 & 0 & \lambda & -\lambda\\
+    \lambda^{2} & \lambda^{2} & -\lambda^{2} & -\lambda^{2}
+    \end{array}\right).\]
+\[
+F^{eq}=\frac{1}{4}\left(\begin{array}{c}
+w+2aw/\lambda\\
+w-2aw/\lambda\\
+w+2bw/\lambda\\
+w-2bw/\lambda
+\end{array}\right).
+\]
+
+\end{frame}
+
+\begin{frame}{D2Q4, equivalent system}
+
+We recover the form (\ref{eq:forme_EDP_eq}) 
+\[
+\partial_{t}\left(\begin{array}{c}
+W\\
+Y
+\end{array}\right)+\frac{r(\omega)}{\Delta t}\left(\begin{array}{c}
+0\\
+Y
+\end{array}\right)+\sum_{i=1}^{d}A^{i}\partial_{i}\left(\begin{array}{c}
+W\\
+Y
+\end{array}\right)
+\]
+\[
++\Delta t\sum_{1\leq i,j\leq d}B^{i,j}\partial_{i,j}\left(\begin{array}{c}
+W\\
+Y
+\end{array}\right)=O(\Delta t^{2}).
+\]
+Details in \cite{guillon2023stability}.
+\end{frame}
+%
+\begin{frame}{D2Q4, equivalent equation}
+
+Under the assumption that $Y=O(\Delta t)$, we obtain to order 2 in
+$\Delta t$:
+\[
+\partial_{t}w+a\partial_{x}w+b\partial_{y}w=\frac{\Delta t}{2}(\frac{1}{\omega}-\frac{1}{2})\nabla\cdot(D\nabla w),
+\]
+with
+\[
+D=\left(\begin{array}{cc}
+\lambda^{2}/2-a^{2} & -ab\\
+-ab & \lambda^{2}/2-b^{2}
+\end{array}\right).
+\]
+
+\end{frame}
+%
+\begin{frame}{D2Q4 stability}
+\begin{itemize}
+\item The first order terms  of the equivalent system are symmetrizable (hence hyperbolic) if and only if
+\[
+\lambda>\sqrt{2}\sqrt{a^{2}+b^{2}}.
+\]
+\item The equivalent equation is stable if and only if
+\[
+\lambda>2\max(\left|a\right|,\left|b\right|).
+\]
+\end{itemize}
+\begin{minipage}[c]{0.5\textwidth}%
+The hyperbolicity condition is more restrictive than the diffusion condition.%
+\end{minipage}%
+\begin{minipage}[c]{0.5\textwidth}%
+\begin{center}
+\includegraphics[width=0.6\textwidth]{images/conditions_D2Q4}
+\par\end{center}%
+\end{minipage}
+\end{frame}
+
+
+
+%
+\begin{frame}{D2Q4 Numerical Results}
+
+Transport of a Gaussian with $\omega=1.6$, $(a,b)=(1,0)$ on
+the unit square, $N_{x}=200$ cells in $x$ and in $y$. Left $\lambda=1.6$
+(stable diffusion), right $\lambda=2.2$ (stable entropy)
+\begin{center}
+\includegraphics[width=0.48\textwidth]{images/om_1\lyxdot 6_lambda_1\lyxdot 6_Nt_80_Nx_200}\includegraphics[width=0.48\textwidth]{images/om_1\lyxdot 6_lambda_2\lyxdot 2_Nt_110_Nx_200}
+\par\end{center}
+
+The most constraining condition appears to be necessary.
+\end{frame}
+%
+\begin{frame}{Lattice-Boltzmann \cite{frapolli2015entropic}}
+
+The standard D2Q9 model could be analyzed using this approach. TODO !
+\end{frame}
+%
+
+\section{Schemes without CFL}
+\begin{frame}{DG Approximation}
+
+In the LBM, the transport equation
+\begin{equation}
+\partial_{t}f+V\cdot\nabla f=0\label{eq:transport}
+\end{equation}
+is solved by shifting. It no longer works on unstructured meshes (since it is non-conservative). It can be solved with a DG (Discontinuous Galerkin) scheme. Computational domain: $\Omega$. Triangulation of $\Omega$: $\mathtt{T}=(L_{i})$ in open cells $L_{i}$
+such that
+\[
+\overline{\Omega}=\bigcup_{i}\overline{L_{i}},\quad L_{i}\cap L_{j}=\emptyset\text{ if }i\neq j.
+\]
+At time $t_{n}=n\Delta t$, on cell $L\in\mathtt{T}$, the solution is approximated by the discontinuous function $f^{n}$.
+\[
+f(X,n\Delta t)\simeq f^{n}(X)=\sum_{k=1}^{p}f_{L}^{n,k}(t)\phi_{L}^{k}(X),\quad X\in L,
+\]
+where the $\phi_{L}^{k}$ are DG basis functions on the cell $L$.
+\end{frame}
+%
+\begin{frame}{Implicit DG Scheme}
+
+A DG scheme, implicit, first-order in time, is given by:
+\[
+\forall(L,k)\quad\int_{L}\frac{f^{n}-f^{n-1}}{\Delta t}\phi_{L}^{k}-\int_{L}f^{n}V\cdot\nabla\phi_{L}^{k}
+\]
+\[
++\int_{\partial L}\left(V\cdot N^{+}f_{L}+V\cdot N^{-}f_{R}\right)\phi_{L}^{k}=0.
+\]
+
+\begin{minipage}[c]{0.5\textwidth}%
+\begin{itemize}
+\item The outward normal to $L$ on $\partial L$ is noted $N$.
+\item We use the upwind flux ($a^{+}=\max(a,0)$, $a^-=\min(a,0)$).
+\item $R$ denotes the neighbor of $L$ along $\partial L$.
+\end{itemize}
+%
+\end{minipage}%
+\begin{minipage}[c]{0.5\textwidth}%
+\begin{center}
+\includegraphics[width=0.6\textwidth]{images/cell_geom}
+\par\end{center}%
+\end{minipage}
+\end{frame}
+%
+
+
+%translatex_split_here
+ \begin{frame}{Explicit Algorithm}
+
+The "implicit" scheme is actually {\bf explicit}, thanks to the upwind flux. Cell $R$ is "upstream" of cell $L$ if $V\cdot N_{RL}>0$.
+Construction of the dependency graph: oriented arc $R\rightarrow L$ if $R$ is upstream of $L$. The time step can then be solved explicitly by traversing the graph in a topological order.
+\begin{center}
+\includegraphics[width=0.9\textwidth]{images/downwind_graph}
+\par\end{center}
+
+\end{frame}
+%
+\begin{frame}{Application: Antenna Simulation}
+\begin{itemize}
+\item Maxwell's equations: $W=(E^{T},H^{T})^{T},$ electric field $E\in\mathbb{R}^{3}$, magnetic field $H\in\mathbb{R}^{3}$.
+\item Maxwell's flux: 
+\[
+Q(W,N)=\left(\begin{array}{c}
+-N\times H\\
+N\times E
+\end{array}\right).
+\]
+\item Source term, conductivity $\sigma$, Ohm's law
+\[
+S(W)=\left(\begin{array}{c}
+-\sigma E\\
+0
+\end{array}\right).
+\]
+\end{itemize}
+\[
+\partial_{t}W+\nabla\cdot Q(W)=S(W).
+\]
+
+\end{frame}
+%
+\begin{frame}{Numerical Results}
+\begin{itemize}
+\item Unstructured mesh of an electrical wire in a cube. Sending a plane pulse.
+\item Second order DG-LBM solver in time (implicit Euler replaced by Crank-Nicolson).
+\item CFL=7.
+\end{itemize}
+\begin{center}
+\includegraphics[width=0.5\textwidth]{images/mesh-fil}
+\par\end{center}
+
+\begin{center}
+\includegraphics[width=0.8\textwidth]{images/resu-fil}
+\par\end{center}
+
+\end{frame}
+%
+\begin{frame}{Comparison of FDTD and DG}
+
+It is possible to make $\sigma=+\infty$ in the scheme while remaining explicit. The source term is resolved in the relaxation step. This is equivalent to doing $E\leftarrow-E$ in this step. Comparison with a finite difference code (Yee's FDTD scheme) on a uniform mesh.
+\begin{center}
+\includegraphics[width=0.45\textwidth]{images/plot_Hx_sigma_inf}\includegraphics[width=0.45\textwidth]{images/plot_Hy_sigma_inf}
+\par\end{center}
+
+\end{frame}
+%
+%translatex_split_here
+ \section{Boundary Conditions}
+\begin{frame}{Boundary Conditions}
+
+  \begin{itemize}
+\item A fundamental challenge with numerical schemes: stable and precise handling of boundary conditions.
+\item Still an open problem for LBM.
+\item We present an attempt for stabilizing a second order boundary condition.
+\end{itemize}
+\end{frame}
+%
+\begin{frame}{Transport Equation}
+
+For $\omega=2$, the LBM is second-order. In practice, the application of boundary conditions can reduce the order or stability.
+
+Consider the 1D transport equation with speed $c>0$ and a boundary condition on the left, $W=w$, $Q^{1}(W)=cw$,
+\begin{align*}
+\partial_{t}w+c\partial_{x}w & =0,\quad x\in[L,R]\\
+w(x,0) & =0,\\
+w(0,t) & =w_{0}(x).
+\end{align*}
+
+\begin{itemize}
+\item Grid points: $x_{i}=L+ih+h/2$, $0\leq i<N$, with $h=(R-L)/N$.
+\item Time step: $\Delta t=h/\lambda$. Time $t_{n}=n\Delta t$.
+\end{itemize}
+\end{frame}
+%
+\begin{frame}{LBM}
+
+\[
+F=\left(\begin{array}{c}
+F_{1}\\
+F_{2}
+\end{array}\right),\quad W=F_{1}+F_{2}.
+\]
+We denote $F_{i}^{n,-}$ the value of $F(x_{i},t_{n}^{-})$ before relaxation. In the shifting step
+\[
+F_{1,i}^{n,-}=F_{1,i+1}^{n-1},\quad F_{2,i}^{n,-}=F_{2,i-1}^{n-1},
+\]
+the values $F_{2,-1}^{n-1}$ (left boundary) and $F_{1,N}^{n-1}$ (right boundary) are missing. Ghost cell method
+\[
+F_{2,-1}^{n-1}=b_{L}(F_{1,0}^{n-1},F_{2,0}^{n-1}),\quad F_{1,N}^{n-1}=b_{R}(F_{1,N-1}^{n-1},F_{2,N-1}^{n-1}).
+\]
+
+\end{frame}
+%
+\begin{frame}{Entropic Stability \cite{audounet84,dubois88,aregba2004kinetic}}
+
+The incoming kinetic entropy must be smaller than the outgoing one:
+\begin{equation}
+s_{2}(b_{L}(F_{1},F_{2}))\leq s_{1}(F_{1}),\quad s_{1}(b_{R}(F_{1},F_{2}))\leq s_{2}(F_{2}).\label{eq:stab_entrop}
+\end{equation}
+Application to the D1Q2 model. We impose $W=F_{1}+F_{2}=0$ on the left and $Y=0=\lambda(F_{2}-F_{1})-c(F_{1}+F_{2})$ on the right. Thus:
+\[
+b_{L}(F_{1},F_{2})=-F_{1},\quad b_{R}(F_{1},F_{2})=\frac{\lambda-c}{\lambda+c}F_{2}
+\]
+Simple calculations show that (\ref{eq:stab_entrop}) is satisfied.
+The scheme is stable, but even when $\omega=2$, it is experimentally only first-order.
+\end{frame}
+%
+%translatex_split_here
+ \begin{frame}{Scheme of Order 2}
+
+It is more accurate to apply a Neumann condition\cite{drui2019analysis}
+$\partial_{x}Y=0$ on the right. This extends the stencil of the ghost function
+to the right as
+\begin{equation}
+F_{1,N}^{n-1}=b_{R}(F_{1,N-1}^{n-1},F_{2,N-1}^{n-1},F_{1,N-2}^{n-1},F_{2,N-2}^{n-1}).\label{eq:big_stencil}
+\end{equation}
+To prevent an increase in entropy, the following scheme is applied:
+\begin{itemize}
+\item Calculate $F_{1,N}^{n-1}$ with (\ref{eq:big_stencil});
+\item If the entropy condition is not satisfied, i.e. if $s_{1}(F_{1,N}^{n-1})>s_{2}(F_{2,N-1}^{n-1})$
+then replace $F_{1,N}^{n-1}$ with the closest value $\widetilde{F_{1,N}^{n-1}}$
+such that $s_{1}(\widetilde{F_{1,N}^{n-1}})=s_{2}(F_{2,N-1}^{n-1})$.
+\end{itemize}
+\end{frame}
+%
+\begin{frame}{Extension to D2Q4}
+\begin{itemize}
+\item For $d>1$, on a boundary point, in general, the number of incoming characteristics
+of the kinetic model and the equivalent system are different.
+\item This phenomenon leads to unstable or inaccurate results when $\omega\simeq2$.
+\item Entropy limiter improves the results.
+\end{itemize}
+Transport equation in 2D with velocity $c=(a,b)$ on the square $\Omega=]0,1[\times]0,1[$.
+\[
+\partial_{t}W+\sum_{i=1}^{2}\partial_{i}Q^{i}(W)=0,\quad Q^{1}(W)=aW,\quad Q^{2}(W)=bW.
+\]
+
+\end{frame}
+
+%
+\begin{frame}{Second Order Boundary Conditions\cite{helie:tel-04034510,helluy_bc2023}}
+\begin{itemize}
+\item Transport equation in 2D with velocity $c=(a,b)$ on the square $\Omega=]0,1[\times]0,1[$. 
+\item Normal vector $(n_{1},n_{2})$ on $\partial\Omega$.
+\item Test of two boundary condition strategies.\medskip{}
+\end{itemize}
+{\scriptsize{}
+\begin{tabular}{|c|l|l|} \hline  Boundary conditions & Entropy stable & Second order accurate\tabularnewline \hline  Inflow border & $\begin{array}{l} \text{Exact solution on }w\\ y_{3}=0 \end{array}$ & $\begin{array}{l} \text{Exact solution on }w\end{array}$\tabularnewline \hline  Outflow border & $\begin{array}{l} y_{1}n_{1}+y_{2}n_{2}=0\\ y_{3}=0 \end{array}$ & $\begin{array}{l} \text{Neumann on }v_{1}y_{1}+v_{2}y_{2}\end{array}$\tabularnewline \hline  Corner inflow/inflow & $\begin{array}{l} \text{Exact solution on }w\\ y_{3}=0 \end{array}$ & $\begin{array}{l} \text{Exact solution on }w\\ y_{3}=0 \end{array}$\tabularnewline \hline  Corner inflow/outflow & $\begin{array}{l} \text{Exact solution on }w\\ n_{1}y_{1}+n_{2}y_{2}=0\\ y_{3}=0 \end{array}$ & $\begin{array}{l} \text{Exact solution on }w\\ \text{Neumann on }v_{1}y_{1}+v_{2}y_{2} \end{array}$\tabularnewline \hline  Corner outflow/outflow & $\begin{array}{l} y_{1}=0\\ y_{2}=0\\ y_{3}=0 \end{array}$ & $\begin{array}{l} \text{Neumann on }v_{1}y_{1}+v_{2}y_{2}\\ y_{3}=0 \end{array}$\tabularnewline \hline  \end{tabular} }{\scriptsize\par}
+\end{frame}
+\begin{frame}{Entropy Evolution}
+
+\includegraphics[width=0.49\textwidth]{images/D2Q4_decroissance_entropy_BC_order2}\includegraphics[width=0.49\textwidth]{images/D2Q4_decroissance_entropy_BC_proj}
+
+Left without entropy limitation, Right with limitation.
+\end{frame}
+
+%translatex_split_here%
+\begin{frame}{Order}
+
+\includegraphics[width=0.49\textwidth]{images/convergence_order_BC_stable}\includegraphics[width=0.49\textwidth]{images/convergence_order_BC_proj}
+
+Left: First-order stable boundary condition (CL), Right: Second-order boundary condition with entropy stabilization
+\end{frame}
+%
+\begin{frame}{Conclusion}
+\begin{itemize}
+\item Systems of conservation laws provide a very rich class of models for physics.
+\item The kinetic approach is a general and highly effective method for building numerical approximations.
+\item The numerical viscosity intuition is useful but not always correct.
+\item Entropic theory allows for the mathematical study of stability and consistence of these schemes.
+\end{itemize}
+\end{frame}
+
+\section{Bibliography}
+\begin{frame}[allowframebreaks]{Bibliography}
+
+\tiny\bibliographystyle{plain}
+\bibliography{kin_diapos}
+
+\end{frame}
+%
+
+\end{document}
+
+
+
