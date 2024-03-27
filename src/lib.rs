@@ -190,7 +190,7 @@ impl LtxNode {
         let refs = self.extracts_references();
         let cmds = self.extracts_commands();
         // add a fake command for avoiding an empty list of commands
-        let mut s = "\ncommand ::= \\commandevide | ".to_string();
+        let mut s = "\ncommand ::= \"\\commandevide\" | ".to_string();
         for l in labels {
             s = s + "\"" + l.clone().as_str() + "\"" + " | ";
         }
