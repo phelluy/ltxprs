@@ -39,6 +39,17 @@ math ::= ("$" stuff "$") | ("$$" stuff "$$")"#;
 //command ::= "\\item"  | "\\begin" | "\\frac" | "\\label{eq:formule}" |
 // "\\end" | "\\ref//{eq:autre_formule}" | "\\section" | "\\sqrt"
 
+// simplified grammar with no constraint on the commands
+const GRAMAR_SHORT: &str = r#"# W3C EBNF grammar of the Latex chunk
+root ::= "\\begin{trsltx}" stuff "\\end{trsltx}"
+stuff ::= (atom | construct)*
+atom ::= command | text
+construct ::= group | math
+text ::= [^\\{}$%]+
+group ::= "{" stuff "}"
+math ::= ("$" stuff "$") | ("$$" stuff "$$")
+command ::= "\null" "#;
+
 // import exit function for debugging (sometimes)
 #[allow(unused_imports)]
 use std::process::exit;
@@ -178,7 +189,8 @@ impl LtxNode {
         let labels = self.extracts_labels();
         let refs = self.extracts_references();
         let cmds = self.extracts_commands();
-        let mut s = "\ncommand ::= ".to_string();
+        // add a fake command for avoiding an empty list of commands
+        let mut s = "\ncommand ::= \\commandevide | ".to_string();
         for l in labels {
             s = s + "\"" + l.clone().as_str() + "\"" + " | ";
         }
