@@ -263,7 +263,7 @@ fn label_node(input: &str) -> nom::IResult<&str, LtxNode> {
 }
 
 ///Parse a backslash followed by a special character: \{}$&,;%@:-
-/// and the accented characters: '`^¨~
+/// and the accented characters: '`^"~
 fn backslash_special(input: &str) -> nom::IResult<&str, &str> {
     alt((
         tag("\\\\"),
@@ -281,6 +281,7 @@ fn backslash_special(input: &str) -> nom::IResult<&str, &str> {
         tag("\\`"),
         tag("\\^"),
         tag("\\\""),
+        tag("\\~"),
     ))(input)
     //tag("\\\\")(input)
 }
