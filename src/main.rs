@@ -5,7 +5,7 @@ use clap::Arg;
 
 #[derive(Parser, Debug)]
 struct Cli {
-    #[clap(short, long)]
+    #[clap(short, long, default_value = "test/simple_fr.tex")]
     input_file: String,
     // #[clap(short, long, default_value = "test/simple_en.tex")]
     // output_file: String,
