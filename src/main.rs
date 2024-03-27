@@ -12,6 +12,12 @@ $ \frac{a}{b} $
     "#;
     // read the "test/simple_fr.tex" file
     let str = std::fs::read_to_string("test/simple_fr.tex").unwrap();
+    let str = std::fs::read_to_string("test/thermo_torch_fr.tex").unwrap();
+    let str = std::fs::read_to_string("test/kin_diapos_wuerzburg.tex").unwrap();
+    // remove text before \begin{document} and after \end{document}
+    let str = str.split(r"\begin{document}").collect::<Vec<&str>>()[1];
+    let str = str.split(r"\end{document}").collect::<Vec<&str>>()[0];
+
     let latex = LtxNode::new(&str);
     let cmds = latex.extracts_commands();
     println!("commands: {:?}", cmds);

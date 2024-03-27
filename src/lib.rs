@@ -1,4 +1,3 @@
-
 //! This library is a parser for a subset of LateX.
 //! It uses the nom library.
 //! It can extract a W3C EBNF grammar of the latex parsed chunk.
@@ -24,7 +23,6 @@
 //! println!("{}",latex.to_ebnf());
 //!```
 
-
 //the grammar of the chunk is as follows
 // the list of possible commands is added afterward
 #[allow(dead_code)]
@@ -45,7 +43,7 @@ group ::= "{" stuff "}""#;
 use std::process::exit;
 
 use nom::{
-    branch::{alt,permutation},
+    branch::{alt, permutation},
     bytes::complete::tag,
     character::complete::{alpha1, char, none_of},
     combinator::{map, recognize},
@@ -57,28 +55,27 @@ use nom::{
 #[derive(Debug, PartialEq, Clone)]
 pub enum LtxNode {
     Text(String),              // a text without any special character (no \{}$%)
-    Comment(String),   // a comment starting with a % and ending with a \n
-    Label(String),          // a label starting with \label{ and ending with }
-    Reference(String),          // a reference starting with \ref{ and ending with }
+    Comment(String),           // a comment starting with a % and ending with a \n
+    Label(String),             // a label starting with \label{ and ending with }
+    Reference(String),         // a reference starting with \ref{ and ending with }
     Command(String),           // a command starting with a \ and followed by [a-zA-Z]+ or [\&{}[]]
     Group(Vec<LtxNode>),       // a group of nodes between { and }
     Math(Vec<LtxNode>),        // a math environment between $ and $ or \( and \)
     DisplayMath(Vec<LtxNode>), // a display math environment between $$ and $$ or \[ and \]
 }
 
-
 impl LtxNode {
     pub fn new(s: &str) -> LtxNode {
         let s = s.trim();
         // construct the string {s} so that the head Node is a group.
-        let s = format!("{{{}}}", s);
+        let s = format!("{{\n{}\n}}", s);
         println!("new: {}", s);
         group_node(&s).unwrap().1
     }
 
     ///Iters in the ltxnode and extracts all the command names
     pub fn extracts_commands(&self) -> Vec<String> {
-        let mut cmd_list = vec!();
+        let mut cmd_list = vec![];
         match self {
             LtxNode::Text(_) => (),
             LtxNode::Comment(_) => (),
@@ -105,11 +102,11 @@ impl LtxNode {
         cmd_list.sort();
         cmd_list.dedup();
         cmd_list
-    }   
+    }
 
     ///Iters in the ltxnode and extracts all the labels
     pub fn extracts_labels(&self) -> Vec<String> {
-        let mut label_list = vec!();
+        let mut label_list = vec![];
         match self {
             LtxNode::Text(_) => (),
             LtxNode::Comment(_) => (),
@@ -140,7 +137,7 @@ impl LtxNode {
 
     ///Iters in the ltxnode and extracts all the references
     pub fn extracts_references(&self) -> Vec<String> {
-        let mut ref_list = vec!();
+        let mut ref_list = vec![];
         match self {
             LtxNode::Text(_) => (),
             LtxNode::Comment(_) => (),
@@ -192,10 +189,9 @@ impl LtxNode {
         // replace all the "\" by "\\"
         s = s.replace("\\", "\\\\");
         let s = s0 + &s;
-        println!("{}",s);
+        println!("{}", s);
         s
-    } 
-
+    }
 }
 
 ///parse a text until one of these character is encountered: \{}$%
@@ -215,15 +211,13 @@ fn text_node(input: &str) -> nom::IResult<&str, LtxNode> {
 
 // // parse a string that is not "ref" and not "label" using the previous parser
 // fn not_ref_label_str(input: &str) -> nom::IResult<&str, &str> {
-    
-// }
 
+// }
 
 // parse an ascii command: a backslash followed by a string of letters
 fn ascii_cmd(input: &str) -> nom::IResult<&str, &str> {
     preceded(char('\\'), alpha1)(input)
 }
-
 
 //parse an alphatext with this possible character: :-_
 // fn label_text(input: &str) -> nom::IResult<&str, &str> {
@@ -254,7 +248,8 @@ fn ltxref_node(input: &str) -> nom::IResult<&str, LtxNode> {
     map(ltxref, |s: &str| {
         // prepend \ref{ and append }
         let cs = format!("\\ref{{{}}}", s);
-        LtxNode::Reference(cs.to_string())})(input)
+        LtxNode::Reference(cs.to_string())
+    })(input)
 }
 
 ///LtxNode version of the label parser
@@ -262,14 +257,22 @@ fn label_node(input: &str) -> nom::IResult<&str, LtxNode> {
     map(label, |s: &str| {
         // prepend \label{ and append }
         let cs = format!("\\label{{{}}}", s);
-        LtxNode::Label(cs.to_string())})(input)
+        LtxNode::Label(cs.to_string())
+    })(input)
 }
 
-
-
-///Parse a backslash followed by a special character: \{}$&
+///Parse a backslash followed by a special character: \{}$&,;%
 fn backslash_special(input: &str) -> nom::IResult<&str, &str> {
-    alt((tag("\\\\"), tag("\\{"), tag("\\}"), tag("\\$"), tag("\\&")))(input)
+    alt((
+        tag("\\\\"),
+        tag("\\{"),
+        tag("\\}"),
+        tag("\\$"),
+        tag("\\&"),
+        tag("\\,"),
+        tag("\\;"),
+        tag("\\%"),
+    ))(input)
     //tag("\\\\")(input)
 }
 // fn backslash_special(input: &str) -> nom::IResult<&str, &str> {
@@ -307,11 +310,15 @@ fn comment(input: &str) -> nom::IResult<&str, &str> {
 
 ///parse a comment and produce a LtxNode::Comment
 fn comment_node(input: &str) -> nom::IResult<&str, LtxNode> {
-    map(comment, |s: &str| LtxNode::Comment(s.to_string()))(input)
+    map(comment, |s: &str| {
+        println!("comment");
+        LtxNode::Comment(s.to_string())
+    })(input)
 }
 
 ///parse a math node delimited by $ .. $ or \( .. \)
 fn math_node(input: &str) -> nom::IResult<&str, LtxNode> {
+    println!("math");
     alt((
         map(
             delimited(tag("$"), many0(alt((atom_node, group_node))), tag("$")),
@@ -326,6 +333,7 @@ fn math_node(input: &str) -> nom::IResult<&str, LtxNode> {
 
 ///parse a display math node delimited by $$ .. $$ or \[ .. \]
 fn display_math_node(input: &str) -> nom::IResult<&str, LtxNode> {
+    println!("display math");
     alt((
         map(
             delimited(tag("$$"), many0(alt((atom_node, group_node))), tag("$$")),
@@ -341,13 +349,24 @@ fn display_math_node(input: &str) -> nom::IResult<&str, LtxNode> {
 ///parse an atom, which is a command, a comment or a text or a math env
 /// some remarks: math envs cannot be nested
 fn atom_node(input: &str) -> nom::IResult<&str, LtxNode> {
-    alt((ltxref_node, label_node, command_node, math_node, display_math_node, comment_node, text_node))(input)
+    alt((
+        comment_node, // the order is important
+        text_node,
+        ltxref_node,
+        label_node,
+        command_node,
+    ))(input)
 }
 
 ///parse a group of nodes recursively
 fn group_node(input: &str) -> nom::IResult<&str, LtxNode> {
+    println!("recursing");
     map(
-        delimited(char('{'), many0(alt((atom_node, group_node))), char('}')),
+        delimited(
+            char('{'),
+            many0(alt((atom_node, group_node, math_node, display_math_node))),
+            char('}'),
+        ),
         |v| LtxNode::Group(v),
     )(input)
 }
@@ -494,5 +513,4 @@ $ \frac{1}{2}$
         let refs = latex.extracts_references();
         println!("references: {:?}", refs);
     }
-
 }
