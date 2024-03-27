@@ -68,6 +68,7 @@ impl LtxNode {
     pub fn new(s: &str) -> LtxNode {
         let s = s.trim();
         // construct the string {s} so that the head Node is a group.
+        // the \n's are important for parsing initial or closing %'s
         let s = format!("{{\n{}\n}}", s);
         println!("new: {}", s);
         group_node(&s).unwrap().1
@@ -261,7 +262,7 @@ fn label_node(input: &str) -> nom::IResult<&str, LtxNode> {
     })(input)
 }
 
-///Parse a backslash followed by a special character: \{}$&,;%
+///Parse a backslash followed by a special character: \{}$&,;%@
 fn backslash_special(input: &str) -> nom::IResult<&str, &str> {
     alt((
         tag("\\\\"),
@@ -272,6 +273,7 @@ fn backslash_special(input: &str) -> nom::IResult<&str, &str> {
         tag("\\,"),
         tag("\\;"),
         tag("\\%"),
+        tag("\\@"),
     ))(input)
     //tag("\\\\")(input)
 }
@@ -311,14 +313,14 @@ fn comment(input: &str) -> nom::IResult<&str, &str> {
 ///parse a comment and produce a LtxNode::Comment
 fn comment_node(input: &str) -> nom::IResult<&str, LtxNode> {
     map(comment, |s: &str| {
-        println!("comment");
+        //println!("comment");
         LtxNode::Comment(s.to_string())
     })(input)
 }
 
 ///parse a math node delimited by $ .. $ or \( .. \)
 fn math_node(input: &str) -> nom::IResult<&str, LtxNode> {
-    println!("math");
+    //println!("math");
     alt((
         map(
             delimited(tag("$"), many0(alt((atom_node, group_node))), tag("$")),
@@ -333,7 +335,7 @@ fn math_node(input: &str) -> nom::IResult<&str, LtxNode> {
 
 ///parse a display math node delimited by $$ .. $$ or \[ .. \]
 fn display_math_node(input: &str) -> nom::IResult<&str, LtxNode> {
-    println!("display math");
+    //println!("display math");
     alt((
         map(
             delimited(tag("$$"), many0(alt((atom_node, group_node))), tag("$$")),
@@ -360,7 +362,7 @@ fn atom_node(input: &str) -> nom::IResult<&str, LtxNode> {
 
 ///parse a group of nodes recursively
 fn group_node(input: &str) -> nom::IResult<&str, LtxNode> {
-    println!("recursing");
+    //println!("recursing");
     map(
         delimited(
             char('{'),
