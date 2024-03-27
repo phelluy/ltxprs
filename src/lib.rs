@@ -31,9 +31,10 @@ const GRAMAR: &str = r#"
 root ::= "\\begin{trsltx}" stuff "\\end{trsltx}"
 stuff ::= (atom | construct)*
 atom ::= command | text
-construct ::= group
+construct ::= group | math
 text ::= [^\\{}$%]+
-group ::= "{" stuff "}""#;
+group ::= "{" stuff "}"
+math ::= ("$" stuff "$") | ("$$" stuff "$$")"#;
 // example of a missing command line:
 //command ::= "\\item"  | "\\begin" | "\\frac" | "\\label{eq:formule}" |
 // "\\end" | "\\ref//{eq:autre_formule}" | "\\section" | "\\sqrt"
