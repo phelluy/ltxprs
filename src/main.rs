@@ -19,11 +19,17 @@ fn main() {
     // split at %done (if present) and take the last part
     let strs = str.split("%done").collect::<Vec<&str>>();
     let len = strs.len();
-    println!("len: {}", len);
+    //println!("len: {}", len);
     let str = if len == 0 { str } else { &strs[len - 1] };
 
     let latex = LtxNode::new(&str);
-    println!("{:?}", latex);
+    //println!("{:?}", latex);
+    let length = 4000;
+    let level = 0;
+    let s = String::new();
+    let s = latex.print_split(level, s, length);
+    println!("{}", s);
+    assert!(1==2);
     let cmds = latex.extracts_commands();
     println!("commands: {:?}", cmds);
     let labels = latex.extracts_labels();

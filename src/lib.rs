@@ -42,14 +42,16 @@ math ::= ("$" stuff "$") | ("$$" stuff "$$")"#;
 // import exit function for debugging (sometimes)
 #[allow(unused_imports)]
 use std::process::exit;
+use std::vec;
 
+use clap::Command;
 use nom::{
     branch::alt,
     bytes::complete::tag,
     character::complete::{alpha1, char, none_of},
     combinator::{map, recognize},
     multi::{many0, many1},
-    sequence::{delimited, preceded,terminated},
+    sequence::{delimited, preceded, terminated},
 };
 
 ///The recursive structure that contains the whole AST
@@ -86,6 +88,150 @@ impl LtxNode {
             }
         }
     }
+
+    // Print the LtxNode by iterating recursively on the nodes and printing the
+    // corresponding string, if relevant
+    pub fn print(&self) {
+        match self {
+            LtxNode::None => (),
+            LtxNode::Text(s) => print!("{}", s),
+            LtxNode::Comment(s) => print!("{}", s),
+            LtxNode::Label(s) => print!("{}", s),
+            LtxNode::Reference(s) => print!("{}", s),
+            LtxNode::Cite(s) => print!("{}", s),
+            LtxNode::Command(s) => print!("{}", s),
+            LtxNode::Group(v) => {
+                print!("{{");
+                for n in v {
+                    n.print();
+                }
+                print!("}}");
+            }
+            LtxNode::Math(v) => {
+                print!("$");
+                for n in v {
+                    n.print();
+                }
+                print!("$");
+            }
+            LtxNode::DisplayMath(v) => {
+                print!("$$");
+                for n in v {
+                    n.print();
+                }
+                print!("$$");
+            }
+        }
+    }
+
+    // Print the LtxNode in a string by iterating recursively on the nodes
+    // put a marker "%trsltx-split" when more than length characters reached
+    // (the length is measured betwen the last "%trsltx-split" and the current node)
+    // but without breaking a syntaxic unit
+    // the string cannot be split if the recursing level is different from 1
+    pub fn print_split(&self, level: usize, mut s_inout: String, length: usize) -> String {
+        //print!("level: {} ", level);
+        let split_level = 1;
+        let mut split = true;
+
+        match self {
+            LtxNode::None => (),
+            LtxNode::Text(s) => s_inout.push_str(s),
+            LtxNode::Comment(s) => s_inout.push_str(s),
+            LtxNode::Label(s) => {
+                s_inout.push_str(s);
+                split = false;
+            }
+            LtxNode::Reference(s) => {
+                s_inout.push_str(s);
+                split = false;
+            }
+            LtxNode::Cite(s) => {
+                s_inout.push_str(s);
+                split = false;
+            }
+            LtxNode::Command(s) => {
+                s_inout.push_str(s);
+                split = false;
+            }
+            LtxNode::Group(v) => {
+                s_inout.push_str("{");
+                for n in v {
+                    s_inout = n.print_split(level + 1, s_inout, length);
+                }
+                s_inout.push_str("}");
+            }
+            LtxNode::Math(v) => {
+                s_inout.push_str("$");
+                for n in v {
+                    s_inout = n.print_split(level + 1, s_inout, length);
+                }
+                s_inout.push_str("$");
+            }
+            LtxNode::DisplayMath(v) => {
+                s_inout.push_str("$$");
+                for n in v {
+                    s_inout = n.print_split(level + 1, s_inout, length);
+                }
+                s_inout.push_str("$$");
+            }
+        }
+
+        // extract the last part of the string after the last "%trsltx-split"
+        let mut parts = s_inout.split("%trsltx-split");
+        let nbparts = parts.clone().count();
+        let lastpart = parts.nth(nbparts - 1).unwrap_or("");
+
+        //get the length since the last " %trsltx-split" or the beginning of s_inout
+        let len = lastpart.len();
+
+        if len < length {
+            split = false;
+        }
+
+        split = split && level == split_level;
+
+        // only cut if the last character in s_inout is a \n
+        // and the split is allowed
+        split = split && s_inout.ends_with("\n");
+
+        if split {
+            // count the number of \begin
+            let nbbegin = lastpart.matches("\\begin").count();
+            // count the number of \end
+            let nbend = lastpart.matches("\\end").count();
+            split = nbbegin == nbend;
+            // if !split {
+            //     println!("No split here: nbbegin={}, nbend={}", nbbegin, nbend);
+            // }
+            // count the number of trsltx-begin-ignore
+            let nbignore = lastpart.matches("%trsltx-begin-ignore").count();
+            // count the number of trsltx-end-ignore
+            let nbendignore = lastpart.matches("%trsltx-end-ignore").count();
+            split = split && nbignore == nbendignore;
+            // if nbignore != nbendignore {
+            //     println!(
+            //         "No split here: nbignore={}, nbendignore={}",
+            //         nbignore, nbendignore
+            //     );
+            //}
+        }
+
+        // if split {
+        //     println!("reach {} characters, thus split", len);
+        //     s_inout.push_str("\n%trsltx-split\n");
+        // }
+
+        s_inout
+    }
+
+    // add the preamble and postamble to the split string
+    fn generate_split_latex(&self) -> String {
+        let mut s = String::new(); 
+        s= self.print_split(0, s, 4000);
+        s
+    }
+
 
     ///Iters in the ltxnode and extracts all the command names
     pub fn extracts_commands(&self) -> Vec<String> {
@@ -279,21 +425,31 @@ fn split_latex_string(s: &str, nmin: usize, nmax: usize) -> String {
     document.to_string()
 }
 
-///parse a text until one of these character is encountered: \{}$% \n
+///parse a text until one of these character is encountered: \{}$%
 /// returns a String
-/// if it ends with \n a \n is appended to the string
+/// if it ends with \n's a \n is appended to the string
+/// if it starts with \n's a \n is prepended to the string
 fn text(input: &str) -> nom::IResult<&str, String> {
     alt((
-        map(terminated(recognize(many0(none_of("\\{}$%\n"))),many1(tag("\n"))), |s: &str| {
-            let sn = format!("{}\n", s);
-            //let sn = format!("type1: {}\n", s);
-            sn.to_string()
-        }),
-        map(preceded(many1(tag("\n")),recognize(many0(none_of("\\{}$%\n")))), |s: &str| {
-            let sn = format!("\n{}", s);
-            //let sn = format!("type2: \n{}", s);
-            sn.to_string()
-        }),        
+        // text that is a end of line after a special character
+        map(
+            terminated(recognize(many0(none_of("\\{}$%\n"))), many1(tag("\n"))),
+            |s: &str| {
+                let sn = format!("{}\n", s);
+                //let sn = format!("type1: {}\n", s);
+                sn.to_string()
+            },
+        ),
+        // text that is a beginning of line before a special character
+        map(
+            preceded(many1(tag("\n")), recognize(many0(none_of("\\{}$%\n")))),
+            |s: &str| {
+                let sn = format!("\n{}", s);
+                //let sn = format!("type2: \n{}", s);
+                sn.to_string()
+            },
+        ),
+        // text in a single line between two special characters
         map(recognize(many1(none_of("\\{}$%"))), |s: &str| {
             //let sn = format!("type 3: {}", s);
             let sn = format!("{}", s);
@@ -444,7 +600,7 @@ fn comment(input: &str) -> nom::IResult<&str, &str> {
 fn comment_node(input: &str) -> nom::IResult<&str, LtxNode> {
     map(comment, |s: &str| {
         //println!("comment");
-        LtxNode::Comment(s.to_string())
+        LtxNode::Comment(format!("%{}\n", s).to_string())
     })(input)
 }
 
