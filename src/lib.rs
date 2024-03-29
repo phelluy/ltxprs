@@ -700,7 +700,7 @@ mod tests {
         let str = "%oula\n\\toto";
         assert_eq!(
             atom_node(str),
-            Ok(("\n\\toto", LtxNode::Comment("oula".to_string())))
+            Ok(("\n\\toto", LtxNode::Comment("%oula\n".to_string())))
         );
         let str = "\\oulaé";
         assert_eq!(
@@ -721,7 +721,7 @@ mod tests {
                 LtxNode::Group(vec![
                     LtxNode::Command("\\item".to_string()),
                     LtxNode::Text(" salut ça va ? ".to_string()),
-                    LtxNode::Comment(" ouf tout va bien".to_string()),
+                    LtxNode::Comment("% ouf tout va bien\n".to_string()),
                     LtxNode::Text("\n".to_string()),
                 ])
             ))

@@ -29,7 +29,6 @@ fn main() {
     let s = String::new();
     let s = latex.print_split(level, s, length);
     println!("{}", s);
-    assert!(1==2);
     let cmds = latex.extracts_commands();
     println!("commands: {:?}", cmds);
     let labels = latex.extracts_labels();
