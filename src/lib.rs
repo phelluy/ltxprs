@@ -35,27 +35,16 @@ construct ::= group | math
 text ::= [^\\{}$%]+
 group ::= "{" stuff "}"
 math ::= ("$" stuff "$") | ("$$" stuff "$$")"#;
-// example of a missing command line:
+// example of a missing command line that will be added by the grammar
 //command ::= "\\item"  | "\\begin" | "\\frac" | "\\label{eq:formule}" |
 // "\\end" | "\\ref//{eq:autre_formule}" | "\\section" | "\\sqrt"
-
-// simplified grammar with no constraint on the commands
-const GRAMAR_SHORT: &str = r#"# W3C EBNF grammar of the Latex chunk
-root ::= "\\begin{trsltx}" stuff "\\end{trsltx}"
-stuff ::= (atom | construct)*
-atom ::= command | text
-construct ::= group | math
-text ::= [^\\{}$%]+
-group ::= "{" stuff "}"
-math ::= ("$" stuff "$") | ("$$" stuff "$$")
-command ::= "\null" "#;
 
 // import exit function for debugging (sometimes)
 #[allow(unused_imports)]
 use std::process::exit;
 
 use nom::{
-    branch::{alt,},
+    branch::alt,
     bytes::complete::tag,
     character::complete::{alpha1, char, none_of},
     combinator::{map, recognize},
@@ -72,10 +61,12 @@ pub enum LtxNode {
     Comment(String),           // a comment starting with a % and ending with a \n
     Label(String),             // a label starting with \label{ and ending with }
     Reference(String),         // a reference starting with \ref{ and ending with }
+    Cite(String),              // a citation starting with \cite{ and ending with }
     Command(String),           // a command starting with a \ and followed by [a-zA-Z]+ or [\&{}[]]
     Group(Vec<LtxNode>),       // a group of nodes between { and }
     Math(Vec<LtxNode>),        // a math environment between $ and $ or \( and \)
     DisplayMath(Vec<LtxNode>), // a display math environment between $$ and $$ or \[ and \]
+    None,                     // when the syntaxic analysis fails
 }
 
 impl LtxNode {
@@ -85,17 +76,27 @@ impl LtxNode {
         // the \n's are important for parsing initial or closing %'s
         let s = format!("{{\n{}\n}}", s);
         //println!("new: {}", s);
-        group_node(&s).unwrap().1
+        let grpn = group_node(&s);
+        match grpn {
+            Ok((_, grpn)) => grpn,
+            Err(err) => {
+                println!("Syntax error near: {:?}", err);
+                println!("Returning an empty analysis");
+                LtxNode::None
+            }
+        }
     }
 
     ///Iters in the ltxnode and extracts all the command names
     pub fn extracts_commands(&self) -> Vec<String> {
         let mut cmd_list = vec![];
         match self {
+            LtxNode::None => (),
             LtxNode::Text(_) => (),
             LtxNode::Comment(_) => (),
             LtxNode::Label(_) => (),
             LtxNode::Reference(_) => (),
+            LtxNode::Cite(_) => (),
             LtxNode::Command(s) => cmd_list.push(s.clone()),
             LtxNode::Group(v) => {
                 for n in v {
@@ -123,10 +124,12 @@ impl LtxNode {
     pub fn extracts_labels(&self) -> Vec<String> {
         let mut label_list = vec![];
         match self {
+            LtxNode::None => (),
             LtxNode::Text(_) => (),
             LtxNode::Comment(_) => (),
             LtxNode::Command(_) => (),
             LtxNode::Reference(_) => (),
+            LtxNode::Cite(_) => (),
             LtxNode::Label(s) => label_list.push(s.clone()),
             LtxNode::Group(v) => {
                 for n in v {
@@ -154,11 +157,13 @@ impl LtxNode {
     pub fn extracts_references(&self) -> Vec<String> {
         let mut ref_list = vec![];
         match self {
+            LtxNode::None => (),
             LtxNode::Text(_) => (),
             LtxNode::Comment(_) => (),
             LtxNode::Command(_) => (),
             LtxNode::Label(_) => (),
             LtxNode::Reference(s) => ref_list.push(s.clone()),
+            LtxNode::Cite(_) => (),
             LtxNode::Group(v) => {
                 for n in v {
                     ref_list.append(&mut n.extracts_references());
@@ -181,6 +186,39 @@ impl LtxNode {
         ref_list
     }
 
+    ///Iters in the ltxnode and extracts all the citations
+    pub fn extracts_citations(&self) -> Vec<String> {
+        let mut cite_list = vec![];
+        match self {
+            LtxNode::None => (),
+            LtxNode::Text(_) => (),
+            LtxNode::Comment(_) => (),
+            LtxNode::Command(_) => (),
+            LtxNode::Label(_) => (),
+            LtxNode::Reference(_) => (),
+            LtxNode::Cite(s) => cite_list.push(s.clone()),
+            LtxNode::Group(v) => {
+                for n in v {
+                    cite_list.append(&mut n.extracts_citations());
+                }
+            }
+            LtxNode::Math(v) => {
+                for n in v {
+                    cite_list.append(&mut n.extracts_citations());
+                }
+            }
+            LtxNode::DisplayMath(v) => {
+                for n in v {
+                    cite_list.append(&mut n.extracts_citations());
+                }
+            }
+        }
+        // remove repeated entries
+        cite_list.sort();
+        cite_list.dedup();
+        cite_list
+    }
+
     /// Generate the W3C EBNF grammar of the latex chunk
     pub fn to_ebnf(&self) -> String {
         let s0 = GRAMAR.to_string();
@@ -188,6 +226,7 @@ impl LtxNode {
         // on a single line, do it so that the backslashes are not removed
         let labels = self.extracts_labels();
         let refs = self.extracts_references();
+        let cites = self.extracts_citations();
         let cmds = self.extracts_commands();
         // add a fake command for avoiding an empty list of commands
         let mut s = "\ncommand ::= \"\\commandevide\" | ".to_string();
@@ -197,17 +236,47 @@ impl LtxNode {
         for r in refs {
             s = s + "\"" + r.clone().as_str() + "\"" + " | ";
         }
+        for r in cites {
+            s = s + "\"" + r.clone().as_str() + "\"" + " | ";
+        }
         for c in cmds {
             s = s + "\"" + c.clone().as_str() + "\"" + " | ";
         }
         // remove the trailing " | "
         s = s.trim_end_matches(" | ").to_string();
         // replace all the "\" by "\\"
-        s = s.replace("\\", "\\\\");
-        let s = s0 + &s;
+        s = s.replace('\\', "\\\\");
+        //let s = s0 + &s;
         //println!("{}", s);
-        s
+        s0 + &s
     }
+}
+
+/// take a string containing a latex file
+/// and split it into a list of strings
+/// the first string is the preamble (before \begin{document})
+/// the nexts strings is the document (between \begin{document} and \end{document})
+/// split into chunks longer than nmin characters and at most nmax characters 
+/// the last string is the postamble (after \end{document}
+fn split_latex_string(s: &str, nmin:usize, nmax: usize) -> String {
+    let code = s.trim();
+    // split at \begin{document}
+    let mut parts = code.split("\\begin{document}");
+    let mut preamble = parts.next().unwrap_or("");
+    let mut document = parts.next().unwrap_or("");
+    // split at \end{document}
+    println!("document: {}", document);
+    let mut parts = document.split("\\end{document}");
+    println!("parts: {:?}---------", parts);
+    let mut document = parts.next().unwrap_or("");
+    let mut postamble = parts.next().unwrap_or("");
+    // split the document into chunks
+
+    println!("preamble: {}", preamble);
+    println!("document: {}", document);
+    println!("postamble: {:?}", postamble);
+
+    document.to_string()
 }
 
 ///parse a text until one of these character is encountered: \{}$%
@@ -254,9 +323,19 @@ fn label(input: &str) -> nom::IResult<&str, &str> {
     preceded(tag("\\label"), label_braces)(input)
 }
 
-///parse a ref: a label_text with a \ref prefix
+///LtxNode version of the label parser
+fn label_node(input: &str) -> nom::IResult<&str, LtxNode> {
+    map(label, |s: &str| {
+        // prepend \label{ and append }
+        let cs = format!("\\label{{{}}}", s);
+        LtxNode::Label(cs.to_string())
+    })(input)
+}
+
+///parse a ref: a label_text with a \ref or \eqref prefix
 fn ltxref(input: &str) -> nom::IResult<&str, &str> {
-    preceded(tag("\\ref"), label_braces)(input)
+    preceded(alt((tag("\\eqref"), tag("\\ref"))), label_braces)(input)
+    //preceded(tag("\\ref"), label_braces)(input)
 }
 
 ///LtxNode version of the previous function
@@ -264,16 +343,22 @@ fn ltxref_node(input: &str) -> nom::IResult<&str, LtxNode> {
     map(ltxref, |s: &str| {
         // prepend \ref{ and append }
         let cs = format!("\\ref{{{}}}", s);
+        //let cs = format!("\\eqref{{{}}}", s);
         LtxNode::Reference(cs.to_string())
     })(input)
 }
 
-///LtxNode version of the label parser
-fn label_node(input: &str) -> nom::IResult<&str, LtxNode> {
-    map(label, |s: &str| {
-        // prepend \label{ and append }
-        let cs = format!("\\label{{{}}}", s);
-        LtxNode::Label(cs.to_string())
+///parse a cite: a label_text with a \cite prefix
+fn cite(input: &str) -> nom::IResult<&str, &str> {
+    preceded(tag("\\cite"), label_braces)(input)
+}
+
+///LtxNode version of the previous function
+fn cite_node(input: &str) -> nom::IResult<&str, LtxNode> {
+    map(cite, |s: &str| {
+        // prepend \cite{ and append }
+        let cs = format!("\\cite{{{}}}", s);
+        LtxNode::Cite(cs.to_string())
     })(input)
 }
 
@@ -318,7 +403,7 @@ fn command_node(input: &str) -> nom::IResult<&str, LtxNode> {
     map(command, |s: &str| {
         // add "\\" at the beginning of the command
         // if the string is not already a backslash_special
-        let cs = if s.starts_with("\\") {
+        let cs = if s.starts_with('\\') {
             s.to_string()
         } else {
             format!("\\{}", s)
@@ -351,11 +436,11 @@ fn math_node(input: &str) -> nom::IResult<&str, LtxNode> {
     alt((
         map(
             delimited(tag("$"), many0(alt((atom_node, group_node))), tag("$")),
-            |v| LtxNode::Math(v),
+            LtxNode::Math,
         ),
         map(
             delimited(tag("\\("), many0(alt((atom_node, group_node))), tag("\\)")),
-            |v| LtxNode::Math(v),
+            LtxNode::Math,
         ),
     ))(input)
 }
@@ -366,11 +451,11 @@ fn display_math_node(input: &str) -> nom::IResult<&str, LtxNode> {
     alt((
         map(
             delimited(tag("$$"), many0(alt((atom_node, group_node))), tag("$$")),
-            |v| LtxNode::DisplayMath(v),
+            LtxNode::DisplayMath,
         ),
         map(
             delimited(tag("\\["), many0(alt((atom_node, group_node))), tag("\\]")),
-            |v| LtxNode::DisplayMath(v),
+            LtxNode::DisplayMath,
         ),
     ))(input)
 }
@@ -383,6 +468,7 @@ fn atom_node(input: &str) -> nom::IResult<&str, LtxNode> {
         text_node,
         ltxref_node,
         label_node,
+        cite_node,
         command_node,
     ))(input)
 }
@@ -396,7 +482,7 @@ fn group_node(input: &str) -> nom::IResult<&str, LtxNode> {
             many0(alt((atom_node, group_node, math_node, display_math_node))),
             char('}'),
         ),
-        |v| LtxNode::Group(v),
+        LtxNode::Group,
     )(input)
 }
 
@@ -498,7 +584,7 @@ mod tests {
     fn recursive_test() {
         let str = r#"{
 \item a
-% rien
+% rien 
 \item {\blue b}
 }
         "#;
@@ -513,6 +599,7 @@ mod tests {
 \item a \\
 % rien 
 \label{toto}
+\cite{tutu}
 \item {\blue {\b \ref{tata} \label{titi}}}
               
               "#;
@@ -541,5 +628,43 @@ $ \frac{1}{2}$
         println!("labels: {:?}", labels);
         let refs = latex.extracts_references();
         println!("references: {:?}", refs);
+    }
+
+    #[test]
+    fn test_full() {
+        let str = r#"
+% comment
+\ref{toto} 
+\item a \\
+$ \frac{a}{b} $
+\label{toto}
+\item {\blue {\b \ref{tata} \label{titi}}}
+ "#;
+        let latex = LtxNode::new(str);
+        println!("{:?}", latex);
+        let cmds = latex.extracts_commands();
+        println!("commands: {:?}", cmds);
+        let labels = latex.extracts_labels();
+        println!("labels: {:?}", labels);
+        let refs = latex.extracts_references();
+        println!("references: {:?}", refs);
+        println!("{}", latex.to_ebnf());
+    }
+
+    #[test]
+    fn test_latex_split() {
+        let str = r#"
+\documentclass{article}
+\begin{document}
+\section{Introduction}
+\label{sec:intro}
+This is the introduction.
+\section{Method}
+\label{sec:method}
+This is the method.
+\end{document}
+ "#;
+        let s = split_latex_string(str, 10, 100);
+        println!("{}", s);
     }
 }
