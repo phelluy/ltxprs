@@ -44,7 +44,7 @@ math ::= ("$" stuff "$") | ("$$" stuff "$$")"#;
 use std::process::exit;
 use std::vec;
 
-use clap::Command;
+//use clap::Command;
 use nom::{
     branch::alt,
     bytes::complete::tag,
@@ -181,6 +181,7 @@ impl LtxNode {
         let mut parts = s_inout.split("%trsltx-split");
         let nbparts = parts.clone().count();
         let lastpart = parts.nth(nbparts - 1).unwrap_or("");
+        //println!("lastpart: {}", lastpart);
 
         //get the length since the last " %trsltx-split" or the beginning of s_inout
         let len = lastpart.len();
@@ -197,9 +198,9 @@ impl LtxNode {
 
         if split {
             // count the number of \begin
-            let nbbegin = lastpart.matches("\\begin").count();
+            let nbbegin = lastpart.matches("\\begin{").count();
             // count the number of \end
-            let nbend = lastpart.matches("\\end").count();
+            let nbend = lastpart.matches("\\end{").count();
             split = nbbegin == nbend;
             // if !split {
             //     println!("No split here: nbbegin={}, nbend={}", nbbegin, nbend);
@@ -214,23 +215,23 @@ impl LtxNode {
             //         "No split here: nbignore={}, nbendignore={}",
             //         nbignore, nbendignore
             //     );
-            //}
+            // }
         }
 
-        // if split {
-        //     println!("reach {} characters, thus split", len);
-        //     s_inout.push_str("\n%trsltx-split\n");
-        // }
+        if split {
+            println!("reach {} characters, thus split", len);
+            s_inout.push_str("\n%trsltx-split\n");
+        }
 
         s_inout
     }
 
     // add the preamble and postamble to the split string
-    fn generate_split_latex(&self) -> String {
-        let mut s = String::new(); 
-        s= self.print_split(0, s, 4000);
-        s
-    }
+    // fn generate_split_latex(&self) -> String {
+    //     let mut s = String::new(); 
+    //     s= self.print_split(0, s, 4000);
+    //     s
+    // }
 
 
     ///Iters in the ltxnode and extracts all the command names
@@ -396,33 +397,6 @@ impl LtxNode {
         //println!("{}", s);
         s0 + &s
     }
-}
-
-/// take a string containing a latex file
-/// and split it into a list of strings
-/// the first string is the preamble (before \begin{document})
-/// the nexts strings is the document (between \begin{document} and \end{document})
-/// split into chunks longer than nmin characters and at most nmax characters
-/// the last string is the postamble (after \end{document}
-fn split_latex_string(s: &str, nmin: usize, nmax: usize) -> String {
-    let code = s.trim();
-    // split at \begin{document}
-    let mut parts = code.split("\\begin{document}");
-    let mut preamble = parts.next().unwrap_or("");
-    let mut document = parts.next().unwrap_or("");
-    // split at \end{document}
-    println!("document: {}", document);
-    let mut parts = document.split("\\end{document}");
-    println!("parts: {:?}---------", parts);
-    let mut document = parts.next().unwrap_or("");
-    let mut postamble = parts.next().unwrap_or("");
-    // split the document into chunks
-
-    println!("preamble: {}", preamble);
-    println!("document: {}", document);
-    println!("postamble: {:?}", postamble);
-
-    document.to_string()
 }
 
 ///parse a text until one of these character is encountered: \{}$%
@@ -838,7 +812,9 @@ This is the introduction.
 This is the method.
 \end{document}
  "#;
-        let s = split_latex_string(str, 10, 100);
+        let s = String::new();
+        let latex = LtxNode::new(str);
+        let s = latex.print_split(1, s, 40);
         println!("{}", s);
     }
 }
