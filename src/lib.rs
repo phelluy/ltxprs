@@ -49,7 +49,7 @@ use nom::{
     character::complete::{alpha1, char, none_of},
     combinator::{map, recognize},
     multi::{many0, many1},
-    sequence::{delimited, preceded},
+    sequence::{delimited, preceded,terminated},
 };
 
 ///The recursive structure that contains the whole AST
@@ -66,7 +66,7 @@ pub enum LtxNode {
     Group(Vec<LtxNode>),       // a group of nodes between { and }
     Math(Vec<LtxNode>),        // a math environment between $ and $ or \( and \)
     DisplayMath(Vec<LtxNode>), // a display math environment between $$ and $$ or \[ and \]
-    None,                     // when the syntaxic analysis fails
+    None,                      // when the syntaxic analysis fails
 }
 
 impl LtxNode {
@@ -256,9 +256,9 @@ impl LtxNode {
 /// and split it into a list of strings
 /// the first string is the preamble (before \begin{document})
 /// the nexts strings is the document (between \begin{document} and \end{document})
-/// split into chunks longer than nmin characters and at most nmax characters 
+/// split into chunks longer than nmin characters and at most nmax characters
 /// the last string is the postamble (after \end{document}
-fn split_latex_string(s: &str, nmin:usize, nmax: usize) -> String {
+fn split_latex_string(s: &str, nmin: usize, nmax: usize) -> String {
     let code = s.trim();
     // split at \begin{document}
     let mut parts = code.split("\\begin{document}");
@@ -279,14 +279,32 @@ fn split_latex_string(s: &str, nmin:usize, nmax: usize) -> String {
     document.to_string()
 }
 
-///parse a text until one of these character is encountered: \{}$%
-fn text(input: &str) -> nom::IResult<&str, &str> {
-    recognize(many1(none_of("\\{}$%")))(input)
+///parse a text until one of these character is encountered: \{}$% \n
+/// returns a String
+/// if it ends with \n a \n is appended to the string
+fn text(input: &str) -> nom::IResult<&str, String> {
+    alt((
+        map(terminated(recognize(many0(none_of("\\{}$%\n"))),many1(tag("\n"))), |s: &str| {
+            let sn = format!("{}\n", s);
+            //let sn = format!("type1: {}\n", s);
+            sn.to_string()
+        }),
+        map(preceded(many1(tag("\n")),recognize(many0(none_of("\\{}$%\n")))), |s: &str| {
+            let sn = format!("\n{}", s);
+            //let sn = format!("type2: \n{}", s);
+            sn.to_string()
+        }),        
+        map(recognize(many1(none_of("\\{}$%"))), |s: &str| {
+            //let sn = format!("type 3: {}", s);
+            let sn = format!("{}", s);
+            sn.to_string()
+        }),
+    ))(input)
 }
 
 ///parse a text and produce a LtxNode::Text
 fn text_node(input: &str) -> nom::IResult<&str, LtxNode> {
-    map(text, |s: &str| LtxNode::Text(s.to_string()))(input)
+    map(text, |s: String| LtxNode::Text(s))(input)
 }
 
 // ///parse a string that is neither  "ref" nor "label"
@@ -497,12 +515,12 @@ mod tests {
     fn parse_text() {
         let str = "oulaOula";
         let res = text(str);
-        assert_eq!(res, Ok(("", "oulaOula")));
+        assert_eq!(res, Ok(("", "oulaOula".to_string())));
         let str = "oulaOula%";
         let res = text_node(str);
         assert_eq!(res, Ok(("%", LtxNode::Text("oulaOula".to_string()))));
-        assert_eq!(text("oulaOula%"), Ok(("%", "oulaOula")));
-        assert_eq!(text("oula\\Oula"), Ok(("\\Oula", "oula")));
+        assert_eq!(text("oulaOula%"), Ok(("%", "oulaOula".to_string())));
+        assert_eq!(text("oula\\Oula"), Ok(("\\Oula", "oula".to_string())));
     }
 
     #[test]
