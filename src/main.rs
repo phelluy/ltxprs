@@ -4,7 +4,7 @@ use clap::Parser;
 
 #[derive(Parser, Debug)]
 struct Cli {
-    #[clap(short, long, default_value = "test/simple_fr.tex")]
+    #[clap(short, long, default_value = "test/axigen.tex")]
     input_file: String,
     // #[clap(short, long, default_value = "test/simple_en.tex")]
     // output_file: String,
