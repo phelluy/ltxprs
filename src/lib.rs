@@ -42,7 +42,7 @@ math ::= ("$" stuff "$") | ("$$" stuff "$$")"#;
 // import exit function for debugging (sometimes)
 #[allow(unused_imports)]
 use std::process::exit;
-use std::vec;
+use std::{collections::HashSet, vec};
 
 //use clap::Command;
 use nom::{
@@ -70,6 +70,57 @@ pub enum LtxNode {
     DisplayMath(Vec<LtxNode>), // a display math environment between $$ and $$ or \[ and \]
     None,                      // when the syntaxic analysis fails
 }
+// take two non empty and sorted vectors of strings and count the number of different elements between them
+// for this convert the vectors into multisets compute the difference and count the elements
+fn distance(v1: &Vec<String>, v2: &Vec<String>) -> usize {
+    if v1.is_empty() {
+        return v2.len();
+    } else if v2.is_empty() {
+        return v1.len();
+    }
+    // assert the vectors are sorted
+    v1.iter().zip(v1.iter().skip(1)).for_each(|(s1, s2)| {
+        assert!(s1 <= s2);
+    });
+    v2.iter().zip(v2.iter().skip(1)).for_each(|(s1, s2)| {
+        assert!(s1 <= s2);
+    });
+    let mut count = 1;
+    let mut v1count = vec![(1, &v1[0])];
+    for i in 1..v1.len() {
+        if v1[i] == v1[i - 1] {
+            count += 1;
+            v1count.push((count, &v1[i]));
+        } else {
+            count = 1;
+            v1count.push((count, &v1[i]));
+        }
+    }
+
+    count = 1;
+    let mut v2count = vec![(1, &v2[0])];
+    for i in 1..v2.len() {
+        if v2[i] == v2[i - 1] {
+            count += 1;
+            v2count.push((count, &v2[i]));
+        } else {
+            count = 1;
+            v2count.push((count, &v2[i]));
+        }
+    }
+
+    // println!("v1count: {:?}", v1count);
+    // println!("v2count: {:?}", v2count);
+    let v1set: HashSet<(usize, &String)> = HashSet::from_iter(v1count);
+    let v2set: HashSet<(usize, &String)> = HashSet::from_iter(v2count);
+    // println!("v1set: {:?}", v1set);
+    // println!("v2set: {:?}", v2set);
+    let vdiff1 = v1set.difference(&v2set);
+    let vdiff2 = v2set.difference(&v1set);
+    // println!("vdiff1: {:?}", vdiff1);
+    // println!("vdiff2: {:?}", vdiff2);
+    vdiff1.count() + vdiff2.count()
+}
 
 impl LtxNode {
     pub fn new(s: &str) -> LtxNode {
@@ -90,6 +141,12 @@ impl LtxNode {
                 LtxNode::None
             }
         }
+    }
+
+    // distance between two LtxNode: it counts the number of different command, citations,
+    // labels and references
+    pub fn distance(&self, other: &LtxNode) -> usize {
+        0
     }
 
     // Print the LtxNode by iterating recursively on the nodes and printing the
@@ -199,9 +256,7 @@ impl LtxNode {
         // and the split is allowed
         split = split && s_inout.ends_with("\n");
 
-
         if split {
-
             // count the number of \begin ... \end in lastpart
             // we use the syntax analysis for avoiding counting
             // the commented \begin and \end
@@ -237,11 +292,10 @@ impl LtxNode {
 
     // add the preamble and postamble to the split string
     // fn generate_split_latex(&self) -> String {
-    //     let mut s = String::new(); 
+    //     let mut s = String::new();
     //     s= self.print_split(0, s, 4000);
     //     s
     // }
-
 
     ///Iters in the ltxnode and extracts all the command names
     /// possibly duplicated
@@ -281,7 +335,6 @@ impl LtxNode {
         cmds.dedup();
         cmds
     }
-
 
     ///Iters in the ltxnode and extracts all the labels with duplicates
     pub fn extracts_labels_multi(&self) -> Vec<String> {
@@ -429,8 +482,6 @@ impl LtxNode {
         s0 + &s
     }
 }
-
-
 
 ///parse a text until one of these character is encountered: \{}$%
 /// returns a String
@@ -849,5 +900,27 @@ This is the method.
         let latex = LtxNode::new(str);
         let s = latex.print_split(1, s, 40);
         println!("{}", s);
+    }
+
+    #[test]
+    fn test_distance() {
+        let v1: Vec<String> = vec!["a", "a", "b", "c", "d"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        let v2: Vec<String> = vec!["a", "b", "b", "c", "d"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        let d = distance(&v1, &v2);
+        assert_eq!(d, 2);
+        let v2: Vec<String> = vec![];
+        let d = distance(&v1, &v2);
+        assert_eq!(d, 5);
+        let d = distance(&v2, &v1);
+        assert_eq!(d, 5);
+        //let v2: Vec<String> = vec!["bb".to_string(),"ba".to_string()];
+        // must fail because the vectors are not sorted
+        //let d = distance(&v1, &v2);
     }
 }
