@@ -146,7 +146,19 @@ impl LtxNode {
     // distance between two LtxNode: it counts the number of different command, citations,
     // labels and references
     pub fn distance(&self, other: &LtxNode) -> usize {
-        0
+        let cmds1 = self.extracts_commands();
+        let cmds2 = other.extracts_commands();
+        let dist1 = distance(&cmds1, &cmds2);
+        let labels1 = self.extracts_labels();
+        let labels2 = other.extracts_labels();
+        let dist2 = distance(&labels1, &labels2);
+        let refs1 = self.extracts_references();
+        let refs2 = other.extracts_references();
+        let dist3 = distance(&refs1, &refs2);
+        let cites1 = self.extracts_citations();
+        let cites2 = other.extracts_citations();
+        let dist4 = distance(&cites1, &cites2);
+        dist1 + dist2 + dist3 + dist4
     }
 
     // Print the LtxNode by iterating recursively on the nodes and printing the
@@ -923,4 +935,31 @@ This is the method.
         // must fail because the vectors are not sorted
         //let d = distance(&v1, &v2);
     }
+
+    #[test]
+    fn test_distance_ltxnode() {
+        let str1 = r#"
+        \begin{document}
+        \section{Introduction}
+        \cite{tutu}
+        $y=cos(x)$
+        \end{document}
+        "#;
+
+        let str2 = r#"
+        \begin{document}
+        \section{Introduction}
+        \cite{toto}
+        $y=sin(x)$
+        \noindent
+        \end{document}
+        "#;
+
+        let ltx1 = LtxNode::new(str1);
+        let ltx2 = LtxNode::new(str2);
+        let d = ltx1.distance(&ltx2);
+        assert_eq!(d, 1);
+    }
+
+
 }
