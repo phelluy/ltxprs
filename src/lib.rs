@@ -84,6 +84,9 @@ impl LtxNode {
             Err(err) => {
                 println!("Syntax error near: {:?}", err);
                 println!("Returning an empty analysis");
+                //println!("The error occurs at: {}\n", s);
+                println!("It is generally caused by non matching delimiters (worst case) or empty string (can be ignored)");
+                println!("Note: pdflatex does not necessarily detect unbalanced delimiters");
                 LtxNode::None
             }
         }
@@ -199,9 +202,11 @@ impl LtxNode {
 
         if split {
 
+            // count the number of \begin ... \end in lastpart
+            // we use the syntax analysis for avoiding counting
+            // the commented \begin and \end
             let ltxnode = LtxNode::new(lastpart);
             let cmds = ltxnode.extracts_commands_multi();
-            // count the number of \begin ... \end in the cmd list
             let nbbegin = cmds.iter().filter(|&x| x.contains("\\begin")).count();
             let nbend = cmds.iter().filter(|&x| x.contains("\\end")).count();
             println!("nbbegin={}, nbend={}", nbbegin, nbend);
