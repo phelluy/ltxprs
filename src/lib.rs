@@ -72,7 +72,7 @@ pub enum LtxNode {
 }
 // take two non empty and sorted vectors of strings and count the number of different elements between them
 // for this convert the vectors into multisets compute the difference and count the elements
-fn distance(v1: &Vec<String>, v2: &Vec<String>) -> usize {
+fn distance(v1: &[String], v2: &[String]) -> usize {
     if v1.is_empty() {
         return v2.len();
     } else if v2.is_empty() {
@@ -215,18 +215,18 @@ impl LtxNode {
                 split = false;
             }
             LtxNode::Group(v) => {
-                s_inout.push_str("{");
+                s_inout.push('{');
                 for n in v {
                     s_inout = n.print_split(level + 1, s_inout, length);
                 }
-                s_inout.push_str("}");
+                s_inout.push('}');
             }
             LtxNode::Math(v) => {
-                s_inout.push_str("$");
+                s_inout.push('$');
                 for n in v {
                     s_inout = n.print_split(level + 1, s_inout, length);
                 }
-                s_inout.push_str("$");
+                s_inout.push('$');
             }
             LtxNode::DisplayMath(v) => {
                 s_inout.push_str("$$");
