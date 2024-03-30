@@ -196,21 +196,15 @@ impl LtxNode {
         // and the split is allowed
         split = split && s_inout.ends_with("\n");
 
-        use regex::Regex;
-
-        // // regex for begin in comments
-        let cbegin = Regex::new(r"%^([\\n])*(\\begin\{) (.*(\\n))").unwrap();
-        // let cend = Regex::new(r"\\end{").unwrap();
 
         if split {
-            // count the number of \begin
-            let nbbegin = lastpart.matches("\\begin{").count();
-            // count the number of commented begin
-            let nbcomment = lastpart.matches("%\\begin{").count();
-            println!("nbbegin={}, nbcomment={}", nbbegin, nbcomment);
-            assert!(nbcomment == 0);
-            // count the number of \end
-            let nbend = lastpart.matches("\\end{").count();
+
+            let ltxnode = LtxNode::new(lastpart);
+            let cmds = ltxnode.extracts_commands_multi();
+            // count the number of \begin ... \end in the cmd list
+            let nbbegin = cmds.iter().filter(|&x| x.contains("\\begin")).count();
+            let nbend = cmds.iter().filter(|&x| x.contains("\\end")).count();
+            println!("nbbegin={}, nbend={}", nbbegin, nbend);
             split = nbbegin == nbend;
             // if !split {
             //     println!("No split here: nbbegin={}, nbend={}", nbbegin, nbend);
