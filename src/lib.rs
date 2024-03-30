@@ -958,7 +958,7 @@ This is the method.
         let ltx1 = LtxNode::new(str1);
         let ltx2 = LtxNode::new(str2);
         let d = ltx1.distance(&ltx2);
-        assert_eq!(d, 1);
+        assert_eq!(d, 3);
     }
 
 

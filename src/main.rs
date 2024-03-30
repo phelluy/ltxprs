@@ -5,13 +5,13 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 struct Cli {
     #[clap(short, long, default_value = "test/simple_fr.tex")]
-    input_file: String,
+    file_input: String,
     // #[clap(short, long, default_value = "test/simple_en.tex")]
     // output_file: String,
 }
 
 fn main() {
-    let input_file = Cli::parse().input_file;
+    let input_file = Cli::parse().file_input;
     let str = std::fs::read_to_string(input_file).unwrap();
     // remove text before \begin{document} and after \end{document}
     let str = str.split(r"\begin{document}").collect::<Vec<&str>>()[1];
