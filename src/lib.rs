@@ -196,9 +196,19 @@ impl LtxNode {
         // and the split is allowed
         split = split && s_inout.ends_with("\n");
 
+        use regex::Regex;
+
+        // // regex for begin in comments
+        let cbegin = Regex::new(r"%^([\\n])*(\\begin\{) (.*(\\n))").unwrap();
+        // let cend = Regex::new(r"\\end{").unwrap();
+
         if split {
             // count the number of \begin
             let nbbegin = lastpart.matches("\\begin{").count();
+            // count the number of commented begin
+            let nbcomment = lastpart.matches("%\\begin{").count();
+            println!("nbbegin={}, nbcomment={}", nbbegin, nbcomment);
+            assert!(nbcomment == 0);
             // count the number of \end
             let nbend = lastpart.matches("\\end{").count();
             split = nbbegin == nbend;
@@ -235,7 +245,8 @@ impl LtxNode {
 
 
     ///Iters in the ltxnode and extracts all the command names
-    pub fn extracts_commands(&self) -> Vec<String> {
+    /// possibly duplicated
+    pub fn extracts_commands_multi(&self) -> Vec<String> {
         let mut cmd_list = vec![];
         match self {
             LtxNode::None => (),
@@ -261,14 +272,20 @@ impl LtxNode {
                 }
             }
         }
-        // remove repeated entries
-        cmd_list.sort();
-        cmd_list.dedup();
         cmd_list
     }
 
-    ///Iters in the ltxnode and extracts all the labels
-    pub fn extracts_labels(&self) -> Vec<String> {
+    /// same as above but with no duplicate
+    pub fn extracts_commands(&self) -> Vec<String> {
+        let mut cmds = self.extracts_commands_multi();
+        cmds.sort();
+        cmds.dedup();
+        cmds
+    }
+
+
+    ///Iters in the ltxnode and extracts all the labels with duplicates
+    pub fn extracts_labels_multi(&self) -> Vec<String> {
         let mut label_list = vec![];
         match self {
             LtxNode::None => (),
@@ -294,14 +311,19 @@ impl LtxNode {
                 }
             }
         }
-        // remove repeated entries
-        label_list.sort();
-        label_list.dedup();
         label_list
     }
 
-    ///Iters in the ltxnode and extracts all the references
-    pub fn extracts_references(&self) -> Vec<String> {
+    // same as above but with no duplicate
+    pub fn extracts_labels(&self) -> Vec<String> {
+        let mut labels = self.extracts_labels_multi();
+        labels.sort();
+        labels.dedup();
+        labels
+    }
+
+    ///Iters in the ltxnode and extracts all the references with duplicates
+    pub fn extracts_references_multi(&self) -> Vec<String> {
         let mut ref_list = vec![];
         match self {
             LtxNode::None => (),
@@ -327,14 +349,19 @@ impl LtxNode {
                 }
             }
         }
-        // remove repeated entries
-        ref_list.sort();
-        ref_list.dedup();
         ref_list
     }
 
-    ///Iters in the ltxnode and extracts all the citations
-    pub fn extracts_citations(&self) -> Vec<String> {
+    /// same as above but with no duplicate
+    pub fn extracts_references(&self) -> Vec<String> {
+        let mut refs = self.extracts_references_multi();
+        refs.sort();
+        refs.dedup();
+        refs
+    }
+
+    ///Iters in the ltxnode and extracts all the citations with duplicates
+    pub fn extracts_citations_multi(&self) -> Vec<String> {
         let mut cite_list = vec![];
         match self {
             LtxNode::None => (),
@@ -360,10 +387,15 @@ impl LtxNode {
                 }
             }
         }
-        // remove repeated entries
-        cite_list.sort();
-        cite_list.dedup();
         cite_list
+    }
+
+    /// same as above but with no duplicate
+    pub fn extracts_citations(&self) -> Vec<String> {
+        let mut cites = self.extracts_citations_multi();
+        cites.sort();
+        cites.dedup();
+        cites
     }
 
     /// Generate the W3C EBNF grammar of the latex chunk
@@ -398,6 +430,8 @@ impl LtxNode {
         s0 + &s
     }
 }
+
+
 
 ///parse a text until one of these character is encountered: \{}$%
 /// returns a String
