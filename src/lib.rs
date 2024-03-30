@@ -613,10 +613,10 @@ fn backslash_special(input: &str) -> nom::IResult<&str, &str> {
         tag("\\\\"),
         tag("\\{"),
         tag("\\}"),
-        tag("\\("),
-        tag("\\)"),
-        tag("\\["),
-        tag("\\]"),
+        // tag("\\("),  // BUG here --> math not detected TODO fix \left(  and \right)
+        // tag("\\)"), // BUG here --> math not detected
+        // tag("\\["),  // BUG here --> math not detected
+        // tag("\\]"),  // BUG here --> math not detected
         tag("\\$"),
         tag("\\&"),
         tag("\\,"),
@@ -723,7 +723,7 @@ fn group_node(input: &str) -> nom::IResult<&str, LtxNode> {
     map(
         delimited(
             char('{'),
-            many0(alt((atom_node, group_node, math_node, display_math_node))),
+            many0(alt((math_node, display_math_node, atom_node, group_node))),
             char('}'),
         ),
         LtxNode::Group,

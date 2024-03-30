@@ -23,7 +23,7 @@ fn main() {
     let str = if len == 0 { str } else { &strs[len - 1] };
 
     let latex = LtxNode::new(&str);
-    //println!("{:?}", latex);
+    println!("{:?}", latex);
     let length = 4000;
     let level = 0;
     let s = String::new();
@@ -35,5 +35,7 @@ fn main() {
     println!("labels: {:?}", labels);
     let refs = latex.extracts_references();
     println!("references: {:?}", refs);
+    let cites = latex.extracts_citations();
+    println!("citations: {:?}", cites);
     println!("{}", latex.to_ebnf());
 }
