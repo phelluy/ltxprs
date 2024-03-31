@@ -184,18 +184,18 @@ impl LtxNode {
                 print!("}}");
             }
             LtxNode::Math(v) => {
-                print!(" \\(");
+                print!(" $");
                 for n in v {
                     n.print();
                 }
-                print!("\\) ");
+                print!("$ ");
             }
             LtxNode::DisplayMath(v) => {
-                print!(" \\[");
+                print!(" $$");
                 for n in v {
                     n.print();
                 }
-                print!("\\] ");
+                print!("$$ ");
             }
         }
     }
@@ -238,18 +238,18 @@ impl LtxNode {
                 s_inout.push('}');
             }
             LtxNode::Math(v) => {
-                s_inout.push_str(" \\(");
+                s_inout.push_str("\\(");
                 for n in v {
                     s_inout = n.print_split(level + 1, s_inout, length);
                 }
-                s_inout.push_str("\\) ");
+                s_inout.push_str("\\)");
             }
             LtxNode::DisplayMath(v) => {
-                s_inout.push_str(" \\[");
+                s_inout.push_str("\\[");
                 for n in v {
                     s_inout = n.print_split(level + 1, s_inout, length);
                 }
-                s_inout.push_str("\\] ");
+                s_inout.push_str("\\]");
             }
         }
 
@@ -646,10 +646,10 @@ fn backslash_special(input: &str) -> nom::IResult<&str, &str> {
         tag("\\\\"),
         tag("\\{"),
         tag("\\}"),
-        tag("\\("),  // BUG here --> math not detected TODO fix \left(  and \right)
-        tag("\\)"), // BUG here --> math not detected
-        tag("\\["),  // BUG here --> math not detected
-        tag("\\]"),  // BUG here --> math not detected
+        // tag("\\("),  // BUG here --> math not detected TODO fix \left(  and \right)
+        // tag("\\)"), // BUG here --> math not detected
+        // tag("\\["),  // BUG here --> math not detected
+        // tag("\\]"),  // BUG here --> math not detected
         tag("\\$"),
         tag("\\&"),
         tag("\\,"),
