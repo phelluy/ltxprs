@@ -184,18 +184,18 @@ impl LtxNode {
                 print!("}}");
             }
             LtxNode::Math(v) => {
-                print!(" $");
+                print!("\\(");
                 for n in v {
                     n.print();
                 }
-                print!("$ ");
+                print!("\\)");
             }
             LtxNode::DisplayMath(v) => {
-                print!(" $$");
+                print!("\\[");
                 for n in v {
                     n.print();
                 }
-                print!("$$ ");
+                print!("\\]");
             }
         }
     }
