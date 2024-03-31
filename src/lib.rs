@@ -238,18 +238,18 @@ impl LtxNode {
                 s_inout.push('}');
             }
             LtxNode::Math(v) => {
-                s_inout.push('$');
+                s_inout.push_str(" \\(");
                 for n in v {
                     s_inout = n.print_split(level + 1, s_inout, length);
                 }
-                s_inout.push('$');
+                s_inout.push_str("\\) ");
             }
             LtxNode::DisplayMath(v) => {
-                s_inout.push_str("$$");
+                s_inout.push_str(" \\[");
                 for n in v {
                     s_inout = n.print_split(level + 1, s_inout, length);
                 }
-                s_inout.push_str("$$");
+                s_inout.push_str("\\] ");
             }
         }
 
@@ -756,7 +756,8 @@ fn group_node(input: &str) -> nom::IResult<&str, LtxNode> {
     let res = map(
         delimited(
             char('{'),
-            many0(alt((math_node, display_math_node, atom_node, group_node))),
+            // ordre important sinon $$ devient une formule de math vide !
+            many0(alt(( display_math_node, math_node, atom_node, group_node))),
             char('}'),
         ),
         |s| { LtxNode::Group(s) },
