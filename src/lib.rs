@@ -47,12 +47,15 @@ use std::{collections::HashSet, vec};
 //use clap::Command;
 use nom::{
     branch::alt,
-    bytes::complete::tag,
+    bytes::complete::{tag, take_until},
     character::complete::{alpha1, char, none_of},
     combinator::{map, recognize},
     multi::{many0, many1},
     sequence::{delimited, preceded, terminated},
 };
+
+use nom_locate::{position, LocatedSpan};
+
 
 ///The recursive structure that contains the whole AST
 /// Remark: the Text node may contain \begin{} ... \end{} environments
@@ -68,7 +71,7 @@ pub enum LtxNode {
     Group(Vec<LtxNode>),       // a group of nodes between { and }
     Math(Vec<LtxNode>),        // a math environment between $ and $ or \( and \)
     DisplayMath(Vec<LtxNode>), // a display math environment between $$ and $$ or \[ and \]
-    None,                      // when the syntaxic analysis fails
+    Problem(String),                      // when the syntaxic analysis fails
 }
 // take two non empty and sorted vectors of strings and count the number of different elements between them
 // for this convert the vectors into multisets compute the difference and count the elements
@@ -133,12 +136,13 @@ impl LtxNode {
         match grpn {
             Ok((_, grpn)) => grpn,
             Err(err) => {
-                println!("Syntax error near: {:?}", err);
-                println!("Returning an empty analysis");
+                println!("Syntax error of type: {:?}", err);
+                //println!("Returning an empty analysis");
                 //println!("The error occurs at: {}\n", s);
                 println!("It is generally caused by non matching delimiters (worst case) or empty string (can be ignored)");
                 println!("Note: pdflatex does not necessarily detect unbalanced delimiters");
-                LtxNode::None
+                let serr = format!("{}\n", err);
+                LtxNode::Problem(serr)
             }
         }
     }
@@ -165,7 +169,7 @@ impl LtxNode {
     // corresponding string, if relevant
     pub fn print(&self) {
         match self {
-            LtxNode::None => (),
+            LtxNode::Problem(s) => print!("{}", s),
             LtxNode::Text(s) => print!("{}", s),
             LtxNode::Comment(s) => print!("{}", s),
             LtxNode::Label(s) => print!("{}", s),
@@ -207,7 +211,7 @@ impl LtxNode {
         let mut split = true;
 
         match self {
-            LtxNode::None => (),
+            LtxNode::Problem(s) => s_inout.push_str(s),
             LtxNode::Text(s) => s_inout.push_str(s),
             LtxNode::Comment(s) => s_inout.push_str(s),
             LtxNode::Label(s) => {
@@ -314,7 +318,7 @@ impl LtxNode {
     pub fn extracts_commands_multi(&self) -> Vec<String> {
         let mut cmd_list = vec![];
         match self {
-            LtxNode::None => (),
+            LtxNode::Problem(_) => (),
             LtxNode::Text(_) => (),
             LtxNode::Comment(_) => (),
             LtxNode::Label(_) => (),
@@ -352,7 +356,7 @@ impl LtxNode {
     pub fn extracts_labels_multi(&self) -> Vec<String> {
         let mut label_list = vec![];
         match self {
-            LtxNode::None => (),
+            LtxNode::Problem(_) => (),
             LtxNode::Text(_) => (),
             LtxNode::Comment(_) => (),
             LtxNode::Command(_) => (),
@@ -390,7 +394,7 @@ impl LtxNode {
     pub fn extracts_references_multi(&self) -> Vec<String> {
         let mut ref_list = vec![];
         match self {
-            LtxNode::None => (),
+            LtxNode::Problem(_) => (),
             LtxNode::Text(_) => (),
             LtxNode::Comment(_) => (),
             LtxNode::Command(_) => (),
@@ -428,7 +432,7 @@ impl LtxNode {
     pub fn extracts_citations_multi(&self) -> Vec<String> {
         let mut cite_list = vec![];
         match self {
-            LtxNode::None => (),
+            LtxNode::Problem(_) => (),
             LtxNode::Text(_) => (),
             LtxNode::Comment(_) => (),
             LtxNode::Command(_) => (),
@@ -493,6 +497,35 @@ impl LtxNode {
         //println!("{}", s);
         s0 + &s
     }
+}
+
+
+// nom_locate test: parse until a "a" is found
+// little example for using nom locate
+// maybe for later development
+type Span<'a> = LocatedSpan<&'a str>;
+
+#[derive(Debug)]
+struct Token<'a> {
+    pub position: Span<'a>,
+    pub s: &'a str,
+}
+
+fn parse_a(s: Span) -> nom::IResult<Span, Token> {
+    let (s, _) = take_until("a")(s)?;
+    let (s, pos) = position(s)?;
+    let (s,a) = tag("a")(s)?;
+    Ok((s, Token { position: pos, s: a.fragment() }))
+}
+
+fn parse_delimited(s: Span) -> nom::IResult<Span, Token> {
+    let (s,_) = take_until("{")(s)?;
+    let (s,pos) = position(s)?;
+    let (_,_) = take_until("}")(s)?;
+    let (s, res) = delimited(char('{'), many0(alpha1), char('}'))(s)?;
+    let token = Token { position: pos, s: res.last().unwrap() };
+    println!("{:?}", res);
+    Ok((s, token))
 }
 
 ///parse a text until one of these character is encountered: \{}$%
@@ -720,14 +753,27 @@ fn atom_node(input: &str) -> nom::IResult<&str, LtxNode> {
 ///parse a group of nodes recursively
 fn group_node(input: &str) -> nom::IResult<&str, LtxNode> {
     //println!("recursing");
-    map(
+    let res = map(
         delimited(
             char('{'),
             many0(alt((math_node, display_math_node, atom_node, group_node))),
             char('}'),
         ),
-        LtxNode::Group,
-    )(input)
+        |s| { LtxNode::Group(s) },
+//        LtxNode::Group,
+    )(input);
+    match res {
+        Ok(_) => {
+            //println!("Ok: {:?}", &res);
+            res
+        }
+        Err(_) => {
+            //println!("Err: {:?}", &res);
+            res
+        }
+    }
+    // println!("input:\n{}\nTree:{:?}", input, res);
+    // Ok(res)
 }
 
 #[cfg(test)]
@@ -959,6 +1005,20 @@ This is the method.
         let ltx2 = LtxNode::new(str2);
         let d = ltx1.distance(&ltx2);
         assert_eq!(d, 3);
+    }
+
+    #[test]
+    fn test_locate() {
+        let str = Span::new("123");
+        let res = parse_a(str);
+        println!("{:?}", res);
+    }
+
+    #[test]
+    fn test_delimited() {
+        let str = Span::new("\n\n{abcd}");
+        let res = parse_delimited(str);
+        println!("{:?}", res);
     }
 
 
