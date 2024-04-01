@@ -34,7 +34,7 @@ atom ::= command | text
 construct ::= group | math
 text ::= [^\\{}$%]+
 group ::= "{" stuff "}"
-math ::= ("$" stuff "$") | ("$$" stuff "$$")"#;
+math ::= ("$$" stuff "$$") | ("$" stuff "$") | ("\\(" stuff "\\)") | ("\\[" stuff "\\]")"#;
 // example of a missing command line that will be added by the grammar
 //command ::= "\\item"  | "\\begin" | "\\frac" | "\\label{eq:formule}" |
 // "\\end" | "\\ref//{eq:autre_formule}" | "\\section" | "\\sqrt"
