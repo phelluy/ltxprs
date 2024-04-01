@@ -56,7 +56,6 @@ use nom::{
 
 use nom_locate::{position, LocatedSpan};
 
-
 ///The recursive structure that contains the whole AST
 /// Remark: the Text node may contain \begin{} ... \end{} environments
 /// including maths. Only the $...$ and $$...$$ are checked for now.
@@ -71,7 +70,7 @@ pub enum LtxNode {
     Group(Vec<LtxNode>),       // a group of nodes between { and }
     Math(Vec<LtxNode>),        // a math environment between $ and $ or \( and \)
     DisplayMath(Vec<LtxNode>), // a display math environment between $$ and $$ or \[ and \]
-    Problem(String),                      // when the syntaxic analysis fails
+    Problem(String),           // when the syntaxic analysis fails
 }
 // take two non empty and sorted vectors of strings and count the number of different elements between them
 // for this convert the vectors into multisets compute the difference and count the elements
@@ -206,7 +205,7 @@ impl LtxNode {
     // but without breaking a syntaxic unit
     // the string cannot be split if the recursing level is different from 1
     pub fn print_split(&self, level: usize, mut s_inout: String, length: usize) -> String {
-        //print!("level: {} ", level);
+        print!("level: {} ", level);
         let split_level = 1;
         let mut split = true;
 
@@ -276,11 +275,17 @@ impl LtxNode {
             // count the number of \begin ... \end in lastpart
             // we use the syntax analysis for avoiding counting
             // the commented \begin and \end
+            let lastpart = if lastpart.starts_with("{") {
+                &lastpart[1..]
+            } else {
+                lastpart
+            };
             let ltxnode = LtxNode::new(lastpart);
             let cmds = ltxnode.extracts_commands_multi();
             let nbbegin = cmds.iter().filter(|&x| x.contains("\\begin")).count();
             let nbend = cmds.iter().filter(|&x| x.contains("\\end")).count();
-            println!("nbbegin={}, nbend={}", nbbegin, nbend);
+            //print!("\nLASTPART ---- {}", lastpart);
+            //println!("nbbegin={}, nbend={}", nbbegin, nbend);
             split = nbbegin == nbend;
             // if !split {
             //     println!("No split here: nbbegin={}, nbend={}", nbbegin, nbend);
@@ -499,7 +504,6 @@ impl LtxNode {
     }
 }
 
-
 // nom_locate test: parse until a "a" is found
 // little example for using nom locate
 // maybe for later development
@@ -514,16 +518,25 @@ struct Token<'a> {
 fn parse_a(s: Span) -> nom::IResult<Span, Token> {
     let (s, _) = take_until("a")(s)?;
     let (s, pos) = position(s)?;
-    let (s,a) = tag("a")(s)?;
-    Ok((s, Token { position: pos, s: a.fragment() }))
+    let (s, a) = tag("a")(s)?;
+    Ok((
+        s,
+        Token {
+            position: pos,
+            s: a.fragment(),
+        },
+    ))
 }
 
 fn parse_delimited(s: Span) -> nom::IResult<Span, Token> {
-    let (s,_) = take_until("{")(s)?;
-    let (s,pos) = position(s)?;
-    let (_,_) = take_until("}")(s)?;
+    let (s, _) = take_until("{")(s)?;
+    let (s, pos) = position(s)?;
+    let (_, _) = take_until("}")(s)?;
     let (s, res) = delimited(char('{'), many0(alpha1), char('}'))(s)?;
-    let token = Token { position: pos, s: res.last().unwrap() };
+    let token = Token {
+        position: pos,
+        s: res.last().unwrap(),
+    };
     println!("{:?}", res);
     Ok((s, token))
 }
@@ -757,11 +770,11 @@ fn group_node(input: &str) -> nom::IResult<&str, LtxNode> {
         delimited(
             char('{'),
             // ordre important sinon $$ devient une formule de math vide !
-            many0(alt(( display_math_node, math_node, atom_node, group_node))),
+            many0(alt((display_math_node, math_node, atom_node, group_node))),
             char('}'),
         ),
-        |s| { LtxNode::Group(s) },
-//        LtxNode::Group,
+        |s| LtxNode::Group(s),
+        //        LtxNode::Group,
     )(input);
     match res {
         Ok(_) => {
@@ -1021,6 +1034,4 @@ This is the method.
         let res = parse_delimited(str);
         println!("{:?}", res);
     }
-
-
 }

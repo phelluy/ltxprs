@@ -25,11 +25,12 @@ fn main() {
 
     let latex = LtxNode::new(&str);
     println!("{:?}", latex);
-    let length = 4000;
+    let length = 200;
     let level = 0;
     let s = String::new();
     let s = latex.print_split(level, s, length);
     println!("{}", s);
+    assert!(1==2);
     let cmds = latex.extracts_commands();
     println!("commands: {:?}", cmds);
     let labels = latex.extracts_labels();
