@@ -4,8 +4,8 @@ use clap::Parser;
 
 #[derive(Parser, Debug)]
 struct Cli {
-//    #[clap(short, long, default_value = "test/simple_fr.tex")]
-    #[clap(short, long, default_value = "test/axigen.tex")]
+  #[clap(short, long, default_value = "test/simple_fr.tex")]
+    //#[clap(short, long, default_value = "test/axigen.tex")]
     file_input: String,
     // #[clap(short, long, default_value = "test/simple_en.tex")]
     // output_file: String,
@@ -21,16 +21,15 @@ fn main() {
     let strs = str.split("%done").collect::<Vec<&str>>();
     let len = strs.len();
     //println!("len: {}", len);
-    let str = if len == 0 { str } else { &strs[len - 1] };
+    let str = if len == 0 { str } else { strs[len - 1] };
 
-    let latex = LtxNode::new(&str);
+    let latex = LtxNode::new(str);
     println!("{:?}", latex);
     let length = 200;
     let level = 0;
     let s = String::new();
     let s = latex.print_split(level, s, length);
     println!("{}", s);
-    assert!(1==2);
     let cmds = latex.extracts_commands();
     println!("commands: {:?}", cmds);
     let labels = latex.extracts_labels();

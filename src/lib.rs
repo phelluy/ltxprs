@@ -45,6 +45,7 @@ use std::process::exit;
 use std::{collections::HashSet, vec};
 
 //use clap::Command;
+#[allow(unused_imports)]
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_until},
@@ -54,7 +55,7 @@ use nom::{
     sequence::{delimited, preceded, terminated},
 };
 
-use nom_locate::{position, LocatedSpan};
+//use nom_locate::{position, LocatedSpan};
 
 ///The recursive structure that contains the whole AST
 /// Remark: the Text node may contain \begin{} ... \end{} environments
@@ -205,7 +206,7 @@ impl LtxNode {
     // but without breaking a syntaxic unit
     // the string cannot be split if the recursing level is different from 1
     pub fn print_split(&self, level: usize, mut s_inout: String, length: usize) -> String {
-        print!("level: {} ", level);
+        //print!("level: {} ", level);
         let split_level = 1;
         let mut split = true;
 
@@ -269,17 +270,18 @@ impl LtxNode {
 
         // only cut if the last character in s_inout is a \n
         // and the split is allowed
-        split = split && s_inout.ends_with("\n");
+        split = split && s_inout.ends_with('\n');
 
         if split {
             // count the number of \begin ... \end in lastpart
             // we use the syntax analysis for avoiding counting
             // the commented \begin and \end
-            let lastpart = if lastpart.starts_with("{") {
-                &lastpart[1..]
-            } else {
-                lastpart
-            };
+            // let lastpart = if lastpart.starts_with("{") {
+            //     &lastpart[1..]
+            // } else {
+            //     lastpart
+            // };
+            let lastpart = lastpart.strip_prefix('{').unwrap_or(lastpart);
             let ltxnode = LtxNode::new(lastpart);
             let cmds = ltxnode.extracts_commands_multi();
             let nbbegin = cmds.iter().filter(|&x| x.contains("\\begin")).count();
@@ -506,40 +508,40 @@ impl LtxNode {
 
 // nom_locate test: parse until a "a" is found
 // little example for using nom locate
-// maybe for later development
-type Span<'a> = LocatedSpan<&'a str>;
+// not used: maybe for later developments...
+// type Span<'a> = LocatedSpan<&'a str>;
 
-#[derive(Debug)]
-struct Token<'a> {
-    pub position: Span<'a>,
-    pub s: &'a str,
-}
+// #[derive(Debug)]
+// struct Token<'a> {
+//     pub position: Span<'a>,
+//     pub s: &'a str,
+// }
 
-fn parse_a(s: Span) -> nom::IResult<Span, Token> {
-    let (s, _) = take_until("a")(s)?;
-    let (s, pos) = position(s)?;
-    let (s, a) = tag("a")(s)?;
-    Ok((
-        s,
-        Token {
-            position: pos,
-            s: a.fragment(),
-        },
-    ))
-}
+// fn parse_a(s: Span) -> nom::IResult<Span, Token> {
+//     let (s, _) = take_until("a")(s)?;
+//     let (s, pos) = position(s)?;
+//     let (s, a) = tag("a")(s)?;
+//     Ok((
+//         s,
+//         Token {
+//             position: pos,
+//             s: a.fragment(),
+//         },
+//     ))
+// }
 
-fn parse_delimited(s: Span) -> nom::IResult<Span, Token> {
-    let (s, _) = take_until("{")(s)?;
-    let (s, pos) = position(s)?;
-    let (_, _) = take_until("}")(s)?;
-    let (s, res) = delimited(char('{'), many0(alpha1), char('}'))(s)?;
-    let token = Token {
-        position: pos,
-        s: res.last().unwrap(),
-    };
-    println!("{:?}", res);
-    Ok((s, token))
-}
+// fn parse_delimited(s: Span) -> nom::IResult<Span, Token> {
+//     let (s, _) = take_until("{")(s)?;
+//     let (s, pos) = position(s)?;
+//     let (_, _) = take_until("}")(s)?;
+//     let (s, res) = delimited(char('{'), many0(alpha1), char('}'))(s)?;
+//     let token = Token {
+//         position: pos,
+//         s: res.last().unwrap(),
+//     };
+//     println!("{:?}", res);
+//     Ok((s, token))
+// }
 
 ///parse a text until one of these character is encountered: \{}$%
 /// returns a String
@@ -560,16 +562,13 @@ fn text(input: &str) -> nom::IResult<&str, String> {
         map(
             preceded(many1(tag("\n")), recognize(many0(none_of("\\{}$%\n")))),
             |s: &str| {
-                let sn = format!("\n{}", s);
-                //let sn = format!("type2: \n{}", s);
-                sn.to_string()
+                s.to_string()
             },
         ),
         // text in a single line between two special characters
         map(recognize(many1(none_of("\\{}$%"))), |s: &str| {
             //let sn = format!("type 3: {}", s);
-            let sn = format!("{}", s);
-            sn.to_string()
+            s.to_string()
         }),
     ))(input)
 }
@@ -773,8 +772,8 @@ fn group_node(input: &str) -> nom::IResult<&str, LtxNode> {
             many0(alt((display_math_node, math_node, atom_node, group_node))),
             char('}'),
         ),
-        |s| LtxNode::Group(s),
-        //        LtxNode::Group,
+        //|s| LtxNode::Group(s),
+        LtxNode::Group,
     )(input);
     match res {
         Ok(_) => {
@@ -1021,17 +1020,17 @@ This is the method.
         assert_eq!(d, 3);
     }
 
-    #[test]
-    fn test_locate() {
-        let str = Span::new("123");
-        let res = parse_a(str);
-        println!("{:?}", res);
-    }
+    // #[test]
+    // fn test_locate() {
+    //     let str = Span::new("123");
+    //     let res = parse_a(str);
+    //     println!("{:?}", res);
+    // }
 
-    #[test]
-    fn test_delimited() {
-        let str = Span::new("\n\n{abcd}");
-        let res = parse_delimited(str);
-        println!("{:?}", res);
-    }
+    // #[test]
+    // fn test_delimited() {
+    //     let str = Span::new("\n\n{abcd}");
+    //     let res = parse_delimited(str);
+    //     println!("{:?}", res);
+    // }
 }
