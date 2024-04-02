@@ -562,7 +562,8 @@ fn text(input: &str) -> nom::IResult<&str, String> {
         map(
             preceded(many1(tag("\n")), recognize(many0(none_of("\\{}$%\n")))),
             |s: &str| {
-                s.to_string()
+                let sn = format!("\n{}", s);
+                sn.to_string()
             },
         ),
         // text in a single line between two special characters
