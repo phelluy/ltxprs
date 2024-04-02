@@ -725,7 +725,8 @@ fn math_node(input: &str) -> nom::IResult<&str, LtxNode> {
     //println!("math");
     alt((
         map(
-            delimited(tag("$"), many0(alt((atom_node, group_node))), tag("$")),
+            // appreciate the many1 instead of many0 !
+            delimited(tag("$"), many1(alt((atom_node, group_node))), tag("$")),
             LtxNode::Math,
         ),
         map(
