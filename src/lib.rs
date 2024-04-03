@@ -624,7 +624,7 @@ fn label_node(input: &str) -> nom::IResult<&str, LtxNode> {
 
 ///parse a ref: a label_text with a \ref or \eqref prefix
 fn ltxref(input: &str) -> nom::IResult<&str, &str> {
-    preceded(alt((tag("\\eqref"), tag("\\ref"))), label_braces)(input)
+    preceded(alt((tag("\\eqref"), tag("\\ref"), tag("\\Cref"))), label_braces)(input)
     //preceded(tag("\\ref"), label_braces)(input)
 }
 
