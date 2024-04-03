@@ -676,6 +676,7 @@ fn backslash_special(input: &str) -> nom::IResult<&str, &str> {
         tag("\\^"),
         tag("\\\""),
         tag("\\~"),
+        tag("\\ ")
     ))(input)
     //tag("\\\\")(input)
 }
