@@ -659,7 +659,7 @@ fn backslash_special(input: &str) -> nom::IResult<&str, &str> {
         tag("\\\\"),
         tag("\\{"),
         tag("\\}"),
-        // tag("\\("),  // BUG here --> math not detected TODO fix \left(  and \right)
+        // tag("\\("),  // BUG here --> math not detected 
         // tag("\\)"), // BUG here --> math not detected
         // tag("\\["),  // BUG here --> math not detected
         // tag("\\]"),  // BUG here --> math not detected
@@ -677,7 +677,10 @@ fn backslash_special(input: &str) -> nom::IResult<&str, &str> {
         tag("\\^"),
         tag("\\\""),
         tag("\\~"),
-        tag("\\ ")
+        tag("\\ "),
+        tag("\\!"),
+        tag("\\|"),
+        tag("\\#"),
     ))(input)
     //tag("\\\\")(input)
 }

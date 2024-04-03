@@ -15,7 +15,8 @@ fn main() {
     let input_file = Cli::parse().file_input;
     let str = std::fs::read_to_string(input_file).unwrap();
     // remove text before \begin{document} and after \end{document}
-    let str = str.split(r"\begin{document}").collect::<Vec<&str>>()[1];
+    let vstr = str.split(r"\begin{document}").collect::<Vec<&str>>();
+    let str = vstr[vstr.len() - 1];
     let str = str.split(r"\end{document}").collect::<Vec<&str>>()[0];
     // split at %done (if present) and take the last part
     let strs = str.split("%done").collect::<Vec<&str>>();
