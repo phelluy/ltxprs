@@ -1,0 +1,31 @@
+\documentclass[french]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{babel}
+\usepackage{graphicx}
+\usepackage{hyperref}
+
+\begin{document}
+\title{Failure example}
+The file \texttt{willfail.tex} will compile will \LaTeX, but parsing will fail with \texttt{ltxprs}.
+See \texttt{willparse.tex} for the corrections. 
+
+\url{http://example.com/%E5%BC%95%E3%81%8D%E5%89%B2%E3%82%8A.html}
+% command containing % will fail
+
+\
+% backslash newline not allowed
+
+\includegraphics{"$HOME/toto.png"}
+% commands containing $ will fail
+
+
+
+{
+% unpaired braces will fail
+
+
+
+$ x= sqrt(y)$
+
+\end{document}

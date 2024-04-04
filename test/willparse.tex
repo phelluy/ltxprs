@@ -1,0 +1,28 @@
+\documentclass[french]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{babel}
+\usepackage{graphicx}
+\usepackage{hyperref}
+
+\newcommand{\myfilename}{"$HOME/toto.png"}
+% add \ before the % to escape it
+\newcommand{\myurl}{\url{http://example.com/\%E5\%BC\%95\%E3\%81\%8D\%E5\%89\%B2\%E3\%82\%8A.html}}
+
+\begin{document}
+\title{Failure example}
+The file \texttt{willfail.tex} will compile will \LaTeX, but parsing will fail with \texttt{ltxprs}.
+See \texttt{willparse.tex} for the corrections. 
+
+\includegraphics{\myfilename}
+
+\myurl
+
+% \ 
+% just remove this backslash
+
+
+
+$ x= sqrt(y)$
+
+\end{document}
