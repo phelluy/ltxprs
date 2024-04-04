@@ -1,7 +1,7 @@
 # ltxprs
 Minimal LaTeX parser
 
-This is a minimal LaTeX parser. Its purpose is to perform very simple checks for a subset of the LaTeX syntax. It then extract a simple BNF grammer with all the parsed commands
+This is a minimal LaTeX parser. Its purpose is to perform very simple checks for a subset of the LaTeX syntax. It then extracts a simple BNF grammer with all the parsed commands
 
 Example of use
 
@@ -28,3 +28,5 @@ $ \frac{a}{b} $
     println!("{}",latex.to_ebnf());
 }
 ```
+
+`ltxprs` has some limitations. See `test/willfail.tex` for examples of forbidden syntax and `test/willparse.tex` for possible workarounds. 
