@@ -624,7 +624,10 @@ fn label_node(input: &str) -> nom::IResult<&str, LtxNode> {
 
 ///parse a ref: a label_text with a \ref or \eqref prefix
 fn ltxref(input: &str) -> nom::IResult<&str, &str> {
-    preceded(alt((tag("\\eqref"), tag("\\ref"), tag("\\Cref"))), label_braces)(input)
+    preceded(
+        alt((tag("\\eqref"), tag("\\ref"), tag("\\Cref"))),
+        label_braces,
+    )(input)
     //preceded(tag("\\ref"), label_braces)(input)
 }
 
@@ -656,31 +659,36 @@ fn cite_node(input: &str) -> nom::IResult<&str, LtxNode> {
 /// and the accented characters: '`^"~
 fn backslash_special(input: &str) -> nom::IResult<&str, &str> {
     alt((
+        // not to be detected because of math mode !
+        // tag("\\("),  begin math
+        // tag("\\)"),  end math
+        // tag("\\["),  begin display math
+        // tag("\\]"),  end display math
+        //////////////////////////////
+        // special symbols
         tag("\\\\"),
         tag("\\{"),
         tag("\\}"),
-        // tag("\\("),  // BUG here --> math not detected 
-        // tag("\\)"), // BUG here --> math not detected
-        // tag("\\["),  // BUG here --> math not detected
-        // tag("\\]"),  // BUG here --> math not detected
         tag("\\$"),
         tag("\\&"),
-        tag("\\,"),
-        tag("\\;"),
         tag("\\%"),
         tag("\\@"),
-        tag("\\:"),
         tag("\\-"),
         tag("\\_"),
+        tag("\\|"),
+        tag("\\#"),
+        // accents
         tag("\\'"),
         tag("\\`"),
         tag("\\^"),
         tag("\\\""),
         tag("\\~"),
+        // spaces
         tag("\\ "),
+        tag("\\,"),
+        tag("\\:"),
+        tag("\\;"),
         tag("\\!"),
-        tag("\\|"),
-        tag("\\#"),
     ))(input)
     //tag("\\\\")(input)
 }
