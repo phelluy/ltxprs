@@ -823,6 +823,19 @@ mod tests {
     }
 
     #[test]
+    fn parse_bb() {
+        let str = "{}";
+        let res = group_node(str);
+        println!("void group:{:?}", res);
+        assert_eq!(res, Ok(("", LtxNode::Group([].to_vec()))));
+        let str = "oulaOula%";
+        let res = text_node(str);
+        assert_eq!(res, Ok(("%", LtxNode::Text("oulaOula".to_string()))));
+        assert_eq!(text("oulaOula%"), Ok(("%", "oulaOula".to_string())));
+        assert_eq!(text("oula\\Oula"), Ok(("\\Oula", "oula".to_string())));
+    }
+
+    #[test]
     fn parse_ascii_cmd() {
         let str = "\\oula";
         let res = ascii_cmd(str);
