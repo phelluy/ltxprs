@@ -576,7 +576,13 @@ fn text(input: &str) -> nom::IResult<&str, String> {
 
 ///parse a text and produce a LtxNode::Text
 fn text_node(input: &str) -> nom::IResult<&str, LtxNode> {
-    map(text, |s: String| LtxNode::Text(s))(input)
+    println!("text: {}\n((((((((((((((((((((", input);
+    let res = map(text, |s: String| LtxNode::Text(s))(input);
+    match res {
+        Ok(ref resu) => println!("text ok, reste:{}\n))))))))))))))))", resu.0), 
+        Err(_) => println!("text fail\n)))))))))))))))))")
+    };
+    res
 }
 
 // ///parse a string that is neither  "ref" nor "label"
@@ -622,7 +628,7 @@ fn label_node(input: &str) -> nom::IResult<&str, LtxNode> {
     })(input)
 }
 
-///parse a ref: a label_text with a \ref or \eqref prefix
+///parse a ref: a label_text with a \ref or \eqref or \Cref prefix
 fn ltxref(input: &str) -> nom::IResult<&str, &str> {
     preceded(
         alt((tag("\\eqref"), tag("\\ref"), tag("\\Cref"))),
@@ -779,6 +785,7 @@ fn atom_node(input: &str) -> nom::IResult<&str, LtxNode> {
 ///parse a group of nodes recursively
 fn group_node(input: &str) -> nom::IResult<&str, LtxNode> {
     //println!("recursing");
+    println!("entering group: {}", input);
     let res = map(
         delimited(
             char('{'),
@@ -790,11 +797,13 @@ fn group_node(input: &str) -> nom::IResult<&str, LtxNode> {
         LtxNode::Group,
     )(input);
     match res {
-        Ok(_) => {
+        Ok(ref resu) => {
+            println!("leaving group ok reste:{}", resu.0);
             //println!("Ok: {:?}", &res);
             res
         }
         Err(_) => {
+            println!("leaving group fail");
             //println!("Err: {:?}", &res);
             res
         }
@@ -833,6 +842,15 @@ mod tests {
         assert_eq!(res, Ok(("%", LtxNode::Text("oulaOula".to_string()))));
         assert_eq!(text("oulaOula%"), Ok(("%", "oulaOula".to_string())));
         assert_eq!(text("oula\\Oula"), Ok(("\\Oula", "oula".to_string())));
+    }
+
+    #[test]
+    fn parse_group_text() {
+        let str = "{1{2}";
+        let res = group_node(str);
+        println!("{:?}", res);
+        //assert_eq!(res, Ok(("", "oula")));
+        //assert_eq!(ascii_cmd("\\oulaé%"), Ok(("é%", "oula")));
     }
 
     #[test]
