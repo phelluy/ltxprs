@@ -55,6 +55,19 @@ use nom::{
     sequence::{delimited, preceded, terminated},
 };
 
+// get a slice of the nth first elements of a char str or the whole string
+// if it is empty or too short
+fn str_start(s: &str, n: usize) -> String {
+    let s = s.to_string();
+    if s.is_empty() {
+        return s;
+    }
+    if s.len() < n {
+        return s;
+    }
+    s.chars().take(n).collect()
+}
+
 //use nom_locate::{position, LocatedSpan};
 
 ///The recursive structure that contains the whole AST
@@ -134,15 +147,24 @@ impl LtxNode {
         //println!("new: {}", s);
         let grpn = group_node(&s);
         match grpn {
-            Ok((_, grpn)) => grpn,
+            Ok((s, grpn)) => {
+                if s != "" {
+                    // get the slice of at most 15 characters in s
+                    let scut = str_start(s, 50);
+                    println!("Warning ! too much closing delimiters at:\"{}...\"", scut);
+                };
+                grpn
+            }
             Err(err) => {
-                println!("Syntax error of type: {:?}", err);
-                //println!("Returning an empty analysis");
-                //println!("The error occurs at: {}\n", s);
-                println!("It is generally caused by non matching delimiters (worst case) or empty string (can be ignored)");
-                println!("Note: pdflatex does not necessarily detect unbalanced delimiters");
+                let err = match err {
+                    nom::Err::Incomplete(_) => "Incomplete".to_string(),
+                    nom::Err::Error(e) => e.to_string(),
+                    nom::Err::Failure(e) => e.to_string(),
+                };
                 let serr = format!("{}\n", err);
-                LtxNode::Problem(serr)
+                let serr = str_start(serr.as_str(), 50)+ "...";
+                let serr = serr; //+ " Maybe a non matching delimiters (worst case) or empty string (can be ignored)";
+                LtxNode::Problem(serr.to_string())
             }
         }
     }
@@ -576,12 +598,12 @@ fn text(input: &str) -> nom::IResult<&str, String> {
 
 ///parse a text and produce a LtxNode::Text
 fn text_node(input: &str) -> nom::IResult<&str, LtxNode> {
-    println!("text: {}\n((((((((((((((((((((", input);
+    //println!("text: {}\n((((((((((((((((((((", input);
     let res = map(text, |s: String| LtxNode::Text(s))(input);
-    match res {
-        Ok(ref resu) => println!("text ok, reste:{}\n))))))))))))))))", resu.0), 
-        Err(_) => println!("text fail\n)))))))))))))))))")
-    };
+    // match res {
+    //     Ok(ref resu) => println!("text ok, reste:{}\n))))))))))))))))", resu.0),
+    //     Err(_) => println!("text fail\n)))))))))))))))))"),
+    // };
     res
 }
 
@@ -785,11 +807,11 @@ fn atom_node(input: &str) -> nom::IResult<&str, LtxNode> {
 ///parse a group of nodes recursively
 fn group_node(input: &str) -> nom::IResult<&str, LtxNode> {
     //println!("recursing");
-    println!("entering group: {}", input);
+    //println!("entering group: {}", input);
     let res = map(
         delimited(
             char('{'),
-            // ordre important sinon $$ devient une formule de math vide !
+            // ordre important pour les perfs
             many0(alt((display_math_node, math_node, atom_node, group_node))),
             char('}'),
         ),
@@ -797,13 +819,13 @@ fn group_node(input: &str) -> nom::IResult<&str, LtxNode> {
         LtxNode::Group,
     )(input);
     match res {
-        Ok(ref resu) => {
-            println!("leaving group ok reste:{}", resu.0);
+        Ok(ref _resu) => {
+            //println!("leaving group ok reste:{}", resu.0);
             //println!("Ok: {:?}", &res);
             res
         }
         Err(_) => {
-            println!("leaving group fail");
+            //println!("leaving group fail");
             //println!("Err: {:?}", &res);
             res
         }
@@ -846,8 +868,8 @@ mod tests {
 
     #[test]
     fn parse_group_text() {
-        let str = "{1{2}";
-        let res = group_node(str);
+        let str = "{\\\n1{2{2}aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        let res = LtxNode::new(str);
         println!("{:?}", res);
         //assert_eq!(res, Ok(("", "oula")));
         //assert_eq!(ascii_cmd("\\oulaé%"), Ok(("é%", "oula")));

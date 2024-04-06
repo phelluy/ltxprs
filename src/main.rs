@@ -26,6 +26,7 @@ fn main() {
 
     let latex = LtxNode::new(str);
     println!("{:?}", latex);
+    //assert!(1==2);
     let length = 200;
     let level = 0;
     let s = String::new();

@@ -10,21 +10,22 @@
 The file \texttt{willfail.tex} will compile will \LaTeX, but parsing will fail with \texttt{ltxprs}.
 See \texttt{willparse.tex} for the corrections. 
 
+\~o
+
+\includegraphics{"$HOME/toto.png"}
+% commands containing $ will fail
+
+\
+% backslash newline not allowed
+
+\url{http://example.com/%E5%BC%95%E3%81%8D%E5%89%B2%E3%82%8A.html}
+% command containing % will fail
+
 \begin{verbatim}
 $
 \end{verbatim}
 % verbatim env are forbidden
 
-\url{http://example.com/%E5%BC%95%E3%81%8D%E5%89%B2%E3%82%8A.html}
-% command containing % will fail
-
-\
-% backslash newline not allowed
-
-\includegraphics{"$HOME/toto.png"}
-% commands containing $ will fail
-
-\~o
 
 {
 % unpaired braces will fail
