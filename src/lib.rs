@@ -148,7 +148,7 @@ impl LtxNode {
         let grpn = group_node(&s);
         match grpn {
             Ok((s, grpn)) => {
-                if s != "" {
+                if !s.is_empty() {
                     // get the slice of at most 15 characters in s
                     let scut = str_start(s, 50);
                     println!("Warning ! too much closing delimiters at:\"{}...\"", scut);
@@ -163,7 +163,7 @@ impl LtxNode {
                 };
                 let serr = format!("{}\n", err);
                 let serr = str_start(serr.as_str(), 50)+ "...";
-                let serr = serr; //+ " Maybe a non matching delimiters (worst case) or empty string (can be ignored)";
+                //let serr = serr + " Maybe a non matching delimiters (worst case) or empty string (can be ignored)";
                 LtxNode::Problem(serr.to_string())
             }
         }
@@ -599,12 +599,13 @@ fn text(input: &str) -> nom::IResult<&str, String> {
 ///parse a text and produce a LtxNode::Text
 fn text_node(input: &str) -> nom::IResult<&str, LtxNode> {
     //println!("text: {}\n((((((((((((((((((((", input);
-    let res = map(text, |s: String| LtxNode::Text(s))(input);
+    // let res = 
+    map(text, |s: String| LtxNode::Text(s))(input)//;
     // match res {
     //     Ok(ref resu) => println!("text ok, reste:{}\n))))))))))))))))", resu.0),
     //     Err(_) => println!("text fail\n)))))))))))))))))"),
     // };
-    res
+    //res
 }
 
 // ///parse a string that is neither  "ref" nor "label"
