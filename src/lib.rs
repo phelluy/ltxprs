@@ -95,13 +95,12 @@ fn distance(v1: &[String], v2: &[String]) -> usize {
     } else if v2.is_empty() {
         return v1.len();
     }
-    // assert the vectors are sorted
-    v1.iter().zip(v1.iter().skip(1)).for_each(|(s1, s2)| {
-        assert!(s1 <= s2);
-    });
-    v2.iter().zip(v2.iter().skip(1)).for_each(|(s1, s2)| {
-        assert!(s1 <= s2);
-    });
+    // Clone and sort to safely ensure order without panicking
+    let mut v1 = v1.to_vec();
+    v1.sort();
+    let mut v2 = v2.to_vec();
+    v2.sort();
+
     let mut count = 1;
     let mut v1count = vec![(1, &v1[0])];
     for i in 1..v1.len() {
