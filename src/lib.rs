@@ -69,7 +69,9 @@ fn str_start(s: &str, n: usize) -> String {
     s.chars().take(n).collect()
 }
 
-//use nom_locate::{position, LocatedSpan};
+use nom_locate::LocatedSpan;
+
+pub type Span<'a> = LocatedSpan<&'a str>;
 
 ///The recursive structure that contains the whole AST
 /// Remark: the Text node may contain \begin{} ... \end{} environments
@@ -141,30 +143,50 @@ fn distance(v1: &[String], v2: &[String]) -> usize {
 impl LtxNode {
     pub fn new(s: &str) -> LtxNode {
         let s = s.trim();
-        // construct the string {s} so that the head Node is a group.
-        // the \n's are important for parsing initial or closing %'s
-        let s = format!("{{\n{}\n}}", s);
-        //println!("new: {}", s);
-        let grpn = group_node(&s);
-        match grpn {
-            Ok((s, grpn)) => {
-                if !s.is_empty() {
-                    // get the slice of at most 15 characters in s
-                    let scut = str_start(s, 50);
-                    println!("Warning ! too much closing delimiters at:\"{}...\"", scut);
+        // The \n's are important for parsing initial or closing %'s
+        let s = format!("\n{}\n", s);
+        let span = Span::new(s.as_str());
+        
+        // Use a root parser logic that doesn't expect braces
+        let res = many0(alt((display_math_node, math_node, atom_node, group_node))).parse(span);
+
+        match res {
+            Ok((s, children)) => {
+                if !s.fragment().trim().is_empty() {
+                    // This happens if parsing stopped prematurely (should not happen with many0 unless error)
+                    let scut = str_start(s.fragment(), 50);
+                    println!("Warning: parsing stopped with remaining content: \"{}...\"", scut);
                 };
-                grpn
+                LtxNode::Group(children)
             }
             Err(err) => {
-                let err = match err {
-                    nom::Err::Incomplete(_) => "Incomplete".to_string(),
-                    nom::Err::Error(e) => e.to_string(),
-                    nom::Err::Failure(e) => e.to_string(),
+                let (input, code) = match err {
+                    nom::Err::Incomplete(_) => return LtxNode::Problem("Incomplete input".to_string()),
+                    nom::Err::Error(e) => (e.input, e.code),
+                    nom::Err::Failure(e) => (e.input, e.code),
                 };
-                let serr = format!("{}\n", err);
-                let serr = str_start(serr.as_str(), 50)+ "...";
-                //let serr = serr + " Maybe a non matching delimiters (worst case) or empty string (can be ignored)";
-                LtxNode::Problem(serr.to_string())
+
+                let line_num = input.location_line();
+                let col_num = input.get_column();
+                
+                // Extract the specific line from the original string `s` for context
+                let line_content = s.lines().nth(line_num as usize - 1).unwrap_or("");
+                
+                // Create a pointer string like "      ^"
+                let pointer: String = std::iter::repeat(' ').take(col_num - 1).chain(std::iter::once('^')).collect();
+
+                // Custom message mapping
+                let msg = match code {
+                    nom::error::ErrorKind::Char => "Unexpected character or missing closing delimiter (e.g. '}')",
+                    nom::error::ErrorKind::Eof => "Unexpected end of file",
+                    _ => "Parse error",
+                };
+
+                let serr = format!(
+                    "Error at line {}, col {}: {}\n{}\n{}\n{:?}",
+                    line_num, col_num, msg, line_content, pointer, code
+                );
+                LtxNode::Problem(serr)
             }
         }
     }
@@ -569,12 +591,12 @@ impl LtxNode {
 /// returns a String
 /// if it ends with \n's a \n is appended to the string
 /// if it starts with \n's a \n is prepended to the string
-fn text(input: &str) -> nom::IResult<&str, String> {
+fn text(input: Span) -> nom::IResult<Span, String> {
     alt((
         // text that is a end of line after a special character
         map(
             terminated(recognize(many0(none_of("\\{}$%\n"))), many1(tag("\n"))),
-            |s: &str| {
+            |s: Span| {
                 let sn = format!("{}\n", s);
                 //let sn = format!("type1: {}\n", s);
                 sn.to_string()
@@ -583,13 +605,13 @@ fn text(input: &str) -> nom::IResult<&str, String> {
         // text that is a beginning of line before a special character
         map(
             preceded(many1(tag("\n")), recognize(many0(none_of("\\{}$%\n")))),
-            |s: &str| {
+            |s: Span| {
                 let sn = format!("\n{}", s);
                 sn.to_string()
             },
         ),
         // text in a single line between two special characters
-        map(recognize(many1(none_of("\\{}$%"))), |s: &str| {
+        map(recognize(many1(none_of("\\{}$%"))), |s: Span| {
             //let sn = format!("type 3: {}", s);
             s.to_string()
         }),
@@ -597,7 +619,7 @@ fn text(input: &str) -> nom::IResult<&str, String> {
 }
 
 ///parse a text and produce a LtxNode::Text
-fn text_node(input: &str) -> nom::IResult<&str, LtxNode> {
+fn text_node(input: Span) -> nom::IResult<Span, LtxNode> {
     //println!("text: {}\n((((((((((((((((((((", input);
     // let res = 
     map(text, |s: String| LtxNode::Text(s)).parse(input)//;
@@ -619,7 +641,7 @@ fn text_node(input: &str) -> nom::IResult<&str, LtxNode> {
 // }
 
 // parse an ascii command: a backslash followed by a string of letters
-fn ascii_cmd(input: &str) -> nom::IResult<&str, &str> {
+fn ascii_cmd(input: Span) -> nom::IResult<Span, Span> {
     preceded(char('\\'), alpha1).parse(input)
 }
 
@@ -628,32 +650,32 @@ fn ascii_cmd(input: &str) -> nom::IResult<&str, &str> {
 //     recognize(many1(alt((alpha1, tag(":"), tag("-"), tag("_")))))(input)
 // }
 // label_text parser same as text parser
-fn label_text(input: &str) -> nom::IResult<&str, &str> {
+fn label_text(input: Span) -> nom::IResult<Span, Span> {
     recognize(many1(none_of("\\{}$%"))).parse(input)
 }
 
 ///parse a label_text enclosed in braces
-fn label_braces(input: &str) -> nom::IResult<&str, &str> {
+fn label_braces(input: Span) -> nom::IResult<Span, Span> {
     delimited(char('{'), label_text, char('}'))
     .parse(input)
 }
 
 ///parse a label: a label_text with a \label prefix
-fn label(input: &str) -> nom::IResult<&str, &str> {
+fn label(input: Span) -> nom::IResult<Span, Span> {
     preceded(tag("\\label"), label_braces).parse(input)
 }
 
 ///LtxNode version of the label parser
-fn label_node(input: &str) -> nom::IResult<&str, LtxNode> {
-    map(label, |s: &str| {
+fn label_node(input: Span) -> nom::IResult<Span, LtxNode> {
+    map(label, |s: Span| {
         // prepend \label{ and append }
-        let cs = format!("\\label{{{}}}", s);
+        let cs = format!("\\label{{{}}}", s.to_string());
         LtxNode::Label(cs.to_string())
     }).parse(input)
 }
 
 ///parse a ref: a label_text with a \ref or \eqref or \Cref prefix
-fn ltxref(input: &str) -> nom::IResult<&str, &str> {
+fn ltxref(input: Span) -> nom::IResult<Span, Span> {
     preceded(
         alt((tag("\\eqref"), tag("\\ref"), tag("\\Cref"))),
         label_braces,
@@ -662,32 +684,32 @@ fn ltxref(input: &str) -> nom::IResult<&str, &str> {
 }
 
 ///LtxNode version of the previous function
-fn ltxref_node(input: &str) -> nom::IResult<&str, LtxNode> {
-    map(ltxref, |s: &str| {
+fn ltxref_node(input: Span) -> nom::IResult<Span, LtxNode> {
+    map(ltxref, |s: Span| {
         // prepend \ref{ and append }
-        let cs = format!("\\ref{{{}}}", s);
+        let cs = format!("\\ref{{{}}}", s.to_string());
         //let cs = format!("\\eqref{{{}}}", s);
         LtxNode::Reference(cs.to_string())
     }).parse(input)
 }
 
 ///parse a cite: a label_text with a \cite prefix
-fn cite(input: &str) -> nom::IResult<&str, &str> {
+fn cite(input: Span) -> nom::IResult<Span, Span> {
     preceded(tag("\\cite"), label_braces).parse(input)
 }
 
 ///LtxNode version of the previous function
-fn cite_node(input: &str) -> nom::IResult<&str, LtxNode> {
-    map(cite, |s: &str| {
+fn cite_node(input: Span) -> nom::IResult<Span, LtxNode> {
+    map(cite, |s: Span| {
         // prepend \cite{ and append }
-        let cs = format!("\\cite{{{}}}", s);
+        let cs = format!("\\cite{{{}}}", s.to_string());
         LtxNode::Cite(cs.to_string())
     }).parse(input)
 }
 
 ///Parse a backslash followed by a special character: \{}()[]$&,;%@:-
 /// and the accented characters: '`^"~
-fn backslash_special(input: &str) -> nom::IResult<&str, &str> {
+fn backslash_special(input: Span) -> nom::IResult<Span, Span> {
     alt((
         // not to be detected because of math mode !
         // tag("\\("),  begin math
@@ -718,6 +740,7 @@ fn backslash_special(input: &str) -> nom::IResult<&str, &str> {
         tag("\\:"),
         tag("\\;"),
         tag("\\!"),
+        tag("\\!"),
     )).parse(input)
     //tag("\\\\")(input)
 }
@@ -726,44 +749,44 @@ fn backslash_special(input: &str) -> nom::IResult<&str, &str> {
 // }
 
 ///parse an ascii_cmd or a backslash_special
-fn command(input: &str) -> nom::IResult<&str, &str> {
+fn command(input: Span) -> nom::IResult<Span, Span> {
     alt((ascii_cmd, backslash_special)).parse(input)
 }
 
 ///parse a command and produce a LtxNode::Command
-fn command_node(input: &str) -> nom::IResult<&str, LtxNode> {
-    map(command, |s: &str| {
+fn command_node(input: Span) -> nom::IResult<Span, LtxNode> {
+    map(command, |s: Span| {
         // add "\\" at the beginning of the command
         // if the string is not already a backslash_special
         let cs = if s.starts_with('\\') {
             s.to_string()
         } else {
-            format!("\\{}", s)
+            format!("\\{}", s.to_string())
         };
         LtxNode::Command(cs.to_string())
     }).parse(input)
 }
 
 ///parse until end of line
-fn end_of_line(input: &str) -> nom::IResult<&str, &str> {
+fn end_of_line(input: Span) -> nom::IResult<Span, Span> {
     recognize(many0(none_of("\n"))).parse(input)
 }
 
 ///parse a comment: anything between a % and a \n
-fn comment(input: &str) -> nom::IResult<&str, &str> {
+fn comment(input: Span) -> nom::IResult<Span, Span> {
     preceded(tag("%"), end_of_line).parse(input)
 }
 
 ///parse a comment and produce a LtxNode::Comment
-fn comment_node(input: &str) -> nom::IResult<&str, LtxNode> {
-    map(comment, |s: &str| {
+fn comment_node(input: Span) -> nom::IResult<Span, LtxNode> {
+    map(comment, |s: Span| {
         //println!("comment");
-        LtxNode::Comment(format!("%{}\n", s).to_string())
+        LtxNode::Comment(format!("%{}\n", s.to_string()).to_string())
     }).parse(input)
 }
 
 ///parse a math node delimited by $ .. $ or \( .. \)
-fn math_node(input: &str) -> nom::IResult<&str, LtxNode> {
+fn math_node(input: Span) -> nom::IResult<Span, LtxNode> {
     //println!("math");
     alt((
         map(
@@ -779,7 +802,7 @@ fn math_node(input: &str) -> nom::IResult<&str, LtxNode> {
 }
 
 ///parse a display math node delimited by $$ .. $$ or \[ .. \]
-fn display_math_node(input: &str) -> nom::IResult<&str, LtxNode> {
+fn display_math_node(input: Span) -> nom::IResult<Span, LtxNode> {
     //println!("display math");
     alt((
         map(
@@ -795,7 +818,7 @@ fn display_math_node(input: &str) -> nom::IResult<&str, LtxNode> {
 
 ///parse an atom, which is a command, a comment or a text or a math env
 /// some remarks: math envs cannot be nested
-fn atom_node(input: &str) -> nom::IResult<&str, LtxNode> {
+fn atom_node(input: Span) -> nom::IResult<Span, LtxNode> {
     alt((
         comment_node, // the order is important
         text_node,
@@ -807,33 +830,23 @@ fn atom_node(input: &str) -> nom::IResult<&str, LtxNode> {
 }
 
 ///parse a group of nodes recursively
-fn group_node(input: &str) -> nom::IResult<&str, LtxNode> {
-    //println!("recursing");
-    //println!("entering group: {}", input);
-    let res = map(
-        delimited(
-            char('{'),
-            // ordre important pour les perfs
-            many0(alt((display_math_node, math_node, atom_node, group_node))),
-            char('}'),
-        ),
-        //|s| LtxNode::Group(s),
-        LtxNode::Group,
-    ).parse(input);
-    match res {
-        Ok(ref _resu) => {
-            //println!("leaving group ok reste:{}", resu.0);
-            //println!("Ok: {:?}", &res);
-            res
-        }
+fn group_node(input: Span) -> nom::IResult<Span, LtxNode> {
+    // Manually parse to capture the start position of the group
+    let (s, start_pos) = nom_locate::position(input)?;
+    let (s, _) = char('{')(s)?;
+    
+    // Parse content (potentially empty)
+    let (s, children) = many0(alt((display_math_node, math_node, atom_node, group_node))).parse(s)?;
+    
+    // Parse closing brace with error handling
+    match char::<Span, nom::error::Error<Span>>('}')(s) {
+        Ok((s, _)) => Ok((s, LtxNode::Group(children))),
         Err(_) => {
-            //println!("leaving group fail");
-            //println!("Err: {:?}", &res);
-            res
+            // If the closing brace is missing, we report the error AT THE OPENING BRACE
+            // We construct a Failure error pointing to start_pos
+            Err(nom::Err::Failure(nom::error::Error::new(start_pos, nom::error::ErrorKind::Char)))
         }
     }
-    // println!("input:\n{}\nTree:{:?}", input, res);
-    // Ok(res)
 }
 
 #[cfg(test)]
@@ -843,112 +856,130 @@ mod tests {
     // cargo command for running a test <nametest>
     // with results displayed
     // cargo test <nametest> -- --nocapture
+    fn check<T: std::fmt::Debug + PartialEq>(res: nom::IResult<Span, T>, expected_rem: &str, expected_val: T) {
+        let (rem, val) = res.expect("Parser failed");
+        assert_eq!(*rem.fragment(), expected_rem, "Remaining input mismatch");
+        assert_eq!(val, expected_val, "Value mismatch");
+    }
+
+    fn check_span(res: nom::IResult<Span, Span>, expected_rem: &str, expected_val: &str) {
+        let (rem, val) = res.expect("Parser failed");
+        assert_eq!(*rem.fragment(), expected_rem, "Remaining input mismatch");
+        assert_eq!(*val.fragment(), expected_val, "Value mismatch");
+    }
+
     #[test]
     fn parse_text() {
         let str = "oulaOula";
-        let res = text(str);
-        assert_eq!(res, Ok(("", "oulaOula".to_string())));
+        let res = text(Span::new(str));
+        check(res, "", "oulaOula".to_string());
+        
         let str = "oulaOula%";
-        let res = text_node(str);
-        assert_eq!(res, Ok(("%", LtxNode::Text("oulaOula".to_string()))));
-        assert_eq!(text("oulaOula%"), Ok(("%", "oulaOula".to_string())));
-        assert_eq!(text("oula\\Oula"), Ok(("\\Oula", "oula".to_string())));
+        let res = text_node(Span::new(str));
+        check(res, "%", LtxNode::Text("oulaOula".to_string()));
+
+        check(text(Span::new("oulaOula%")), "%", "oulaOula".to_string());
+        check(text(Span::new("oula\\Oula")), "\\Oula", "oula".to_string());
     }
 
     #[test]
     fn parse_bb() {
         let str = "{}";
-        let res = group_node(str);
+        let res = group_node(Span::new(str));
         println!("void group:{:?}", res);
-        assert_eq!(res, Ok(("", LtxNode::Group([].to_vec()))));
+        check(res, "", LtxNode::Group([].to_vec()));
+
         let str = "oulaOula%";
-        let res = text_node(str);
-        assert_eq!(res, Ok(("%", LtxNode::Text("oulaOula".to_string()))));
-        assert_eq!(text("oulaOula%"), Ok(("%", "oulaOula".to_string())));
-        assert_eq!(text("oula\\Oula"), Ok(("\\Oula", "oula".to_string())));
+        let res = text_node(Span::new(str));
+        check(res, "%", LtxNode::Text("oulaOula".to_string()));
+
+        check(text(Span::new("oulaOula%")), "%", "oulaOula".to_string());
+        check(text(Span::new("oula\\Oula")), "\\Oula", "oula".to_string());
     }
 
     #[test]
     fn parse_group_text() {
         let str = "{\\\n1{2{2}aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-        let res = LtxNode::new(str);
+        let res = LtxNode::new(str); // calls new which handles Span
         println!("{:?}", res);
-        //assert_eq!(res, Ok(("", "oula")));
-        //assert_eq!(ascii_cmd("\\oulaé%"), Ok(("é%", "oula")));
     }
 
     #[test]
     fn parse_ascii_cmd() {
         let str = "\\oula";
-        let res = ascii_cmd(str);
+        let res = ascii_cmd(Span::new(str));
         println!("{:?}", res);
-        assert_eq!(res, Ok(("", "oula")));
-        assert_eq!(ascii_cmd("\\oulaé%"), Ok(("é%", "oula")));
+        check_span(res, "", "oula");
+        
+        let res = ascii_cmd(Span::new("\\oulaé%"));
+        check_span(res, "é%", "oula");
     }
 
     #[test]
     fn parse_end_of_line() {
         let str = "oulaOula\n";
-        let res = end_of_line(str);
-        assert_eq!(res, Ok(("\n", "oulaOula")));
-        assert_eq!(end_of_line("oulaOula%"), Ok(("", "oulaOula%")));
-        assert_eq!(end_of_line("oulaOula\\Oula"), Ok(("", "oulaOula\\Oula")));
+        let res = end_of_line(Span::new(str));
+        check_span(res, "\n", "oulaOula");
+        
+        check_span(end_of_line(Span::new("oulaOula%")), "", "oulaOula%");
+        check_span(end_of_line(Span::new("oulaOula\\Oula")), "", "oulaOula\\Oula");
     }
 
     #[test]
     fn parse_command() {
         let str = "\\oula";
-        let res = command(str);
+        let res = command(Span::new(str));
         println!("{:?}", res);
-        assert_eq!(res, Ok(("", "oula")));
-        assert_eq!(command("\\oulaé%"), Ok(("é%", "oula")));
-        assert_eq!(command("\\\\oulaé%"), Ok(("oulaé%", "\\\\")));
+        check_span(res, "", "oula");
+        
+        check_span(command(Span::new("\\oulaé%")), "é%", "oula");
+        check_span(command(Span::new("\\\\oulaé%")), "oulaé%", "\\\\");
     }
 
     #[test]
     fn parse_comment() {
-        // let str = "aaaa%oula\n";
-        // // assert comment(str) generates an error
-        //assert_eq!(comment(str), Ok(("", str)));
         let str = "%oula\n";
-        assert_eq!(comment(str), Ok(("\n", "oula")));
+        check_span(comment(Span::new(str)), "\n", "oula");
     }
 
     #[test]
     fn parse_atom() {
         let str = "aaaa%oula\n";
-        assert_eq!(
-            atom_node(str),
-            Ok(("%oula\n", LtxNode::Text("aaaa".to_string())))
+        check(
+            atom_node(Span::new(str)),
+            "%oula\n", 
+            LtxNode::Text("aaaa".to_string())
         );
+
         let str = "%oula\n\\toto";
-        assert_eq!(
-            atom_node(str),
-            Ok(("\n\\toto", LtxNode::Comment("%oula\n".to_string())))
+        check(
+            atom_node(Span::new(str)),
+            "\n\\toto",
+            LtxNode::Comment("%oula\n".to_string())
         );
+
         let str = "\\oulaé";
-        assert_eq!(
-            atom_node(str),
-            Ok(("é", LtxNode::Command("\\oula".to_string())))
+        check(
+            atom_node(Span::new(str)),
+            "é",
+            LtxNode::Command("\\oula".to_string())
         );
     }
 
     #[test]
     fn parse_group_node() {
         let str = "{\\item salut ça va ? % ouf tout va bien\n}";
-        let grp = group_node(str);
+        let grp = group_node(Span::new(str));
         println!("{:?}", grp);
-        assert_eq!(
+        check(
             grp,
-            Ok((
-                "",
-                LtxNode::Group(vec![
-                    LtxNode::Command("\\item".to_string()),
-                    LtxNode::Text(" salut ça va ? ".to_string()),
-                    LtxNode::Comment("% ouf tout va bien\n".to_string()),
-                    LtxNode::Text("\n".to_string()),
-                ])
-            ))
+            "",
+            LtxNode::Group(vec![
+                LtxNode::Command("\\item".to_string()),
+                LtxNode::Text(" salut ça va ? ".to_string()),
+                LtxNode::Comment("% ouf tout va bien\n".to_string()),
+                LtxNode::Text("\n".to_string()),
+            ])
         );
     }
 
@@ -960,7 +991,7 @@ mod tests {
 \item {\blue b}
 }
         "#;
-        let grp = group_node(str);
+        let grp = group_node(Span::new(str));
         println!("{:?}", grp);
     }
 
