@@ -53,6 +53,7 @@ use nom::{
     combinator::{map, recognize},
     multi::{many0, many1},
     sequence::{delimited, preceded, terminated},
+    Parser,
 };
 
 // get a slice of the nth first elements of a char str or the whole string
@@ -593,14 +594,14 @@ fn text(input: &str) -> nom::IResult<&str, String> {
             //let sn = format!("type 3: {}", s);
             s.to_string()
         }),
-    ))(input)
+    )).parse(input)
 }
 
 ///parse a text and produce a LtxNode::Text
 fn text_node(input: &str) -> nom::IResult<&str, LtxNode> {
     //println!("text: {}\n((((((((((((((((((((", input);
     // let res = 
-    map(text, |s: String| LtxNode::Text(s))(input)//;
+    map(text, |s: String| LtxNode::Text(s)).parse(input)//;
     // match res {
     //     Ok(ref resu) => println!("text ok, reste:{}\n))))))))))))))))", resu.0),
     //     Err(_) => println!("text fail\n)))))))))))))))))"),
@@ -620,7 +621,7 @@ fn text_node(input: &str) -> nom::IResult<&str, LtxNode> {
 
 // parse an ascii command: a backslash followed by a string of letters
 fn ascii_cmd(input: &str) -> nom::IResult<&str, &str> {
-    preceded(char('\\'), alpha1)(input)
+    preceded(char('\\'), alpha1).parse(input)
 }
 
 //parse an alphatext with this possible character: :-_
@@ -629,17 +630,18 @@ fn ascii_cmd(input: &str) -> nom::IResult<&str, &str> {
 // }
 // label_text parser same as text parser
 fn label_text(input: &str) -> nom::IResult<&str, &str> {
-    recognize(many1(none_of("\\{}$%")))(input)
+    recognize(many1(none_of("\\{}$%"))).parse(input)
 }
 
 ///parse a label_text enclosed in braces
 fn label_braces(input: &str) -> nom::IResult<&str, &str> {
-    delimited(char('{'), label_text, char('}'))(input)
+    delimited(char('{'), label_text, char('}'))
+    .parse(input)
 }
 
 ///parse a label: a label_text with a \label prefix
 fn label(input: &str) -> nom::IResult<&str, &str> {
-    preceded(tag("\\label"), label_braces)(input)
+    preceded(tag("\\label"), label_braces).parse(input)
 }
 
 ///LtxNode version of the label parser
@@ -648,7 +650,7 @@ fn label_node(input: &str) -> nom::IResult<&str, LtxNode> {
         // prepend \label{ and append }
         let cs = format!("\\label{{{}}}", s);
         LtxNode::Label(cs.to_string())
-    })(input)
+    }).parse(input)
 }
 
 ///parse a ref: a label_text with a \ref or \eqref or \Cref prefix
@@ -656,7 +658,7 @@ fn ltxref(input: &str) -> nom::IResult<&str, &str> {
     preceded(
         alt((tag("\\eqref"), tag("\\ref"), tag("\\Cref"))),
         label_braces,
-    )(input)
+    ).parse(input)
     //preceded(tag("\\ref"), label_braces)(input)
 }
 
@@ -667,12 +669,12 @@ fn ltxref_node(input: &str) -> nom::IResult<&str, LtxNode> {
         let cs = format!("\\ref{{{}}}", s);
         //let cs = format!("\\eqref{{{}}}", s);
         LtxNode::Reference(cs.to_string())
-    })(input)
+    }).parse(input)
 }
 
 ///parse a cite: a label_text with a \cite prefix
 fn cite(input: &str) -> nom::IResult<&str, &str> {
-    preceded(tag("\\cite"), label_braces)(input)
+    preceded(tag("\\cite"), label_braces).parse(input)
 }
 
 ///LtxNode version of the previous function
@@ -681,7 +683,7 @@ fn cite_node(input: &str) -> nom::IResult<&str, LtxNode> {
         // prepend \cite{ and append }
         let cs = format!("\\cite{{{}}}", s);
         LtxNode::Cite(cs.to_string())
-    })(input)
+    }).parse(input)
 }
 
 ///Parse a backslash followed by a special character: \{}()[]$&,;%@:-
@@ -717,7 +719,7 @@ fn backslash_special(input: &str) -> nom::IResult<&str, &str> {
         tag("\\:"),
         tag("\\;"),
         tag("\\!"),
-    ))(input)
+    )).parse(input)
     //tag("\\\\")(input)
 }
 // fn backslash_special(input: &str) -> nom::IResult<&str, &str> {
@@ -726,7 +728,7 @@ fn backslash_special(input: &str) -> nom::IResult<&str, &str> {
 
 ///parse an ascii_cmd or a backslash_special
 fn command(input: &str) -> nom::IResult<&str, &str> {
-    alt((ascii_cmd, backslash_special))(input)
+    alt((ascii_cmd, backslash_special)).parse(input)
 }
 
 ///parse a command and produce a LtxNode::Command
@@ -740,17 +742,17 @@ fn command_node(input: &str) -> nom::IResult<&str, LtxNode> {
             format!("\\{}", s)
         };
         LtxNode::Command(cs.to_string())
-    })(input)
+    }).parse(input)
 }
 
 ///parse until end of line
 fn end_of_line(input: &str) -> nom::IResult<&str, &str> {
-    recognize(many0(none_of("\n")))(input)
+    recognize(many0(none_of("\n"))).parse(input)
 }
 
 ///parse a comment: anything between a % and a \n
 fn comment(input: &str) -> nom::IResult<&str, &str> {
-    preceded(tag("%"), end_of_line)(input)
+    preceded(tag("%"), end_of_line).parse(input)
 }
 
 ///parse a comment and produce a LtxNode::Comment
@@ -758,7 +760,7 @@ fn comment_node(input: &str) -> nom::IResult<&str, LtxNode> {
     map(comment, |s: &str| {
         //println!("comment");
         LtxNode::Comment(format!("%{}\n", s).to_string())
-    })(input)
+    }).parse(input)
 }
 
 ///parse a math node delimited by $ .. $ or \( .. \)
@@ -774,7 +776,7 @@ fn math_node(input: &str) -> nom::IResult<&str, LtxNode> {
             delimited(tag("\\("), many0(alt((atom_node, group_node))), tag("\\)")),
             LtxNode::Math,
         ),
-    ))(input)
+    )).parse(input)
 }
 
 ///parse a display math node delimited by $$ .. $$ or \[ .. \]
@@ -789,7 +791,7 @@ fn display_math_node(input: &str) -> nom::IResult<&str, LtxNode> {
             delimited(tag("\\["), many0(alt((atom_node, group_node))), tag("\\]")),
             LtxNode::DisplayMath,
         ),
-    ))(input)
+    )).parse(input)
 }
 
 ///parse an atom, which is a command, a comment or a text or a math env
@@ -802,7 +804,7 @@ fn atom_node(input: &str) -> nom::IResult<&str, LtxNode> {
         label_node,
         cite_node,
         command_node,
-    ))(input)
+    )).parse(input)
 }
 
 ///parse a group of nodes recursively
@@ -818,7 +820,7 @@ fn group_node(input: &str) -> nom::IResult<&str, LtxNode> {
         ),
         //|s| LtxNode::Group(s),
         LtxNode::Group,
-    )(input);
+    ).parse(input);
     match res {
         Ok(ref _resu) => {
             //println!("leaving group ok reste:{}", resu.0);
