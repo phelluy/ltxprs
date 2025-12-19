@@ -306,51 +306,74 @@ impl LtxNode {
         //get the length since the last " %trsltx-split" or the beginning of s_inout
         let len = lastpart.len();
 
-        if len < length {
+        let mut length_reached = len >= length;
+        
+        if !length_reached {
             split = false;
         }
 
-        split = split && level == split_level;
-
-        // only cut if the last character in s_inout is a \n
-        // and the split is allowed
-        split = split && s_inout.ends_with('\n');
+        // IMPORTANT: Only split at the ROOT level (level 0)
+        // This ensures we are not splitting inside ANY LaTeX structure (group, math, environment, etc.)
+        // recursive calls naturally increment 'level', so 'level == 0' means we are at the top level of the document body.
+        split = split && level == 1;
 
         if split {
-            // count the number of \begin ... \end in lastpart
-            // we use the syntax analysis for avoiding counting
-            // the commented \begin and \end
-            // let lastpart = if lastpart.starts_with("{") {
-            //     &lastpart[1..]
-            // } else {
-            //     lastpart
-            // };
             let lastpart = lastpart.strip_prefix('{').unwrap_or(lastpart);
-            let ltxnode = LtxNode::new(lastpart);
-            let cmds = ltxnode.extracts_commands_multi();
-            let nbbegin = cmds.iter().filter(|&x| x.contains("\\begin")).count();
-            let nbend = cmds.iter().filter(|&x| x.contains("\\end")).count();
-            //print!("\nLASTPART ---- {}", lastpart);
-            //println!("nbbegin={}, nbend={}", nbbegin, nbend);
-            split = nbbegin == nbend;
-            // if !split {
-            //     println!("No split here: nbbegin={}, nbend={}", nbbegin, nbend);
-            // }
-            // count the number of trsltx-begin-ignore
             let nbignore = lastpart.matches("%trsltx-begin-ignore").count();
-            // count the number of trsltx-end-ignore
             let nbendignore = lastpart.matches("%trsltx-end-ignore").count();
-            split = split && nbignore == nbendignore;
-            // if nbignore != nbendignore {
-            //     println!(
-            //         "No split here: nbignore={}, nbendignore={}",
-            //         nbignore, nbendignore
-            //     );
-            // }
+            
+            // Do not split inside an ignored region
+            if nbignore != nbendignore {
+                split = false;
+            }
+
+            if split {
+                let ltxnode = LtxNode::new(lastpart);
+                let cmds = ltxnode.extracts_commands_multi();
+                let nbbegin = cmds.iter().filter(|&x| x.contains("\\begin")).count();
+                let nbend = cmds.iter().filter(|&x| x.contains("\\end")).count();
+                
+                // Do not split inside an environment like \begin{} \end{}
+                // This is a backup check, as level==0 should already handle most cases, 
+                // but some environments might be parsed as a sequence of nodes at root level if not enclosed in a single group
+                if nbbegin != nbend {
+                    split = false;
+                }
+            }
+            
+            if split {
+                // Heuristic: check if we are at a good semantic break
+                // 1. Check for empty line (paragraph break)
+                let is_paragraph_break = s_inout.ends_with("\n\n") || s_inout.ends_with("\r\n\r\n");
+                
+                // 2. Check for sectioning command in the current node
+                let is_section_command = match self {
+                    LtxNode::Command(s) => {
+                         s.contains("\\section") || s.contains("\\chapter") || s.contains("\\subsection") || s.contains("\\item")
+                    },
+                    _ => false
+                };
+
+                // 3. Check for sentence-ending punctuation inside math or text
+                // We check if the LAST node processed (prior to this potential split point) ended with punctuation.
+                // However, 'self' here is the CURRENT node being processed *appended* to s_inout.
+                // Actually, 'self' is the node we just appended or are about to append? 
+                // Looking at the code: s_inout.push_str(s) happens BEFORE this check for simple nodes like Text/Command.
+                // For recursive nodes (Group/Math), recursive print_split is called.
+                // So checking 's_inout' content is more reliable for "ending with punctuation".
+                
+                let s_trimmed = s_inout.trim_end();
+                let ends_with_punctuation = s_trimmed.ends_with('.') || s_trimmed.ends_with('?') || s_trimmed.ends_with('!');
+
+                // If we are over the length limit, ONLY split if we found a valid break point
+                if !is_paragraph_break && !is_section_command && !ends_with_punctuation {
+                    split = false;
+                }
+            }
         }
 
         if split {
-            println!("reach {} characters, thus split", len);
+            println!("Split triggered at length {} (boundary found)\nLast chars: {:?}", len, &s_inout[s_inout.len().saturating_sub(20)..]);
             s_inout.push_str("\n%trsltx-split\n");
         }
 
